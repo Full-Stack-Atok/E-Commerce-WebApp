@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { useUserStore } from "../stores/useUserStore";
 
 const SignUpPage = () => {
-  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -13,13 +12,13 @@ const SignUpPage = () => {
     confirmPassword: "",
   });
 
-  const {signup, loading} = useUserStore();
+  const { signup, loading } = useUserStore();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Called here");
     signup(formData);
   };
+
   return (
     <div className="flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <motion.div
@@ -188,12 +187,12 @@ const SignUpPage = () => {
 
           <p className="mt-8 text-center text-sm text-slate-300">
             Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-medium text-sky-500 hover:text-sky-700 transition-colors ud"
-              >
-                Login here <ArrowRight className="inline h-4 w-4" />
-              </Link>
+            <Link
+              to="/login"
+              className="font-medium text-sky-500 hover:text-sky-700 transition-colors ud"
+            >
+              Login here <ArrowRight className="inline h-4 w-4" />
+            </Link>
           </p>
         </div>
       </motion.div>

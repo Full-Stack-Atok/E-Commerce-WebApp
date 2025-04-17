@@ -1,9 +1,10 @@
 import { ShoppingCart, UserPlus, LogIn, LogOut, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useUserStore } from "../stores/useUserStore";
 
 const Navbar = () => {
-  const user = false;
-  const isAdmin = false;
+  const { user, logout } = useUserStore();
+  const isAdmin = user?.role === "admin";
 
   return (
     <header className="fixed top-0 left-0 w-full bg-white bg-opacity-70 backdrop-blur-md shadow-md z-40 transition-all duration-300 border-b border-slate-200">
@@ -33,7 +34,7 @@ const Navbar = () => {
                   size={20}
                 />
                 <span className="hidden sm:inline">Cart</span>
-                <span className="absolute -top-2 -left-2 bg-blue-600 text-blue rounded-full px-2 py-0.5 text-xs group-hover:bg-blue-400 transition duration-300 ease-in-out">
+                <span className="absolute -top-2 -left-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs group-hover:bg-blue-400 transition duration-300 ease-in-out">
                   3
                 </span>
               </Link>
@@ -47,7 +48,10 @@ const Navbar = () => {
             )}
 
             {user ? (
-              <button className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out">
+              <button
+                className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
+                onClick={logout}
+              >
                 <LogOut size={18} />
                 <span className="hidden sm:inline ml-2">Logout</span>
               </button>
@@ -62,7 +66,7 @@ const Navbar = () => {
                 </Link>
                 <Link
                   to={"/login"}
-                  className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
+                  className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
                 >
                   <LogIn className="mr-2" size={18} />
                   Login
