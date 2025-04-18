@@ -8,12 +8,13 @@ const categories = [
   { href: "/jackets", name: "Jackets", imageUrl: "/jackets.jpg" },
   { href: "/suits", name: "Suits", imageUrl: "/suits.jpg" },
   { href: "/bags", name: "Bags", imageUrl: "/bags.jpg" },
+  { href: "/gadgets", name: "Gadgets", imageUrl: "/gadgets.png" },
 ];
 
 const HomePage = () => {
-  return(
+  return (
     <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-    <div className="relative min-h-screen text-white overflow-hidden">
+      <div className="relative min-h-screen text-white overflow-hidden">
         <h1 className="text-center text-5xl sm:text-6xl font-bold text-slate-100 mb-4">
           Explore Our Categories
         </h1>
@@ -22,16 +23,13 @@ const HomePage = () => {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map(category => (
-            <CategoryItem
-              category={category}
-              key={category.name}
-            />
+          {categories.map((category) => (
+            <CategoryItem category={category} key={category.name} />
           ))}
         </div>
       </div>
     </div>
-  ) 
+  );
 };
 
 export default HomePage;
