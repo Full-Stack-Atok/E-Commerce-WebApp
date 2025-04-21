@@ -2,13 +2,36 @@ import { motion } from "framer-motion";
 import { useCartStore } from "../stores/useCartStore";
 import { Link } from "react-router-dom";
 import { MoveRight } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import axios from "../lib/axios";
+
+const stripePromise = loadStripe(
+  "pk_test_51RDLZCH6Ci4DXLwg6A4VCnBcZ0oytcB93rMTpKJqXWnLKIVh84C10me5rSqrubRexAtb1GjUiRy26h4rO1kZ3PZp00fUB3t35f"
+);
 
 const OrderSummary = () => {
-  const { total, subtotal, coupon, isCouponApplied } = useCartStore();
+  const { total, subtotal, coupon, isCouponApplied, cart } = useCartStore();
   const savings = subtotal - total;
   const formattedSubtotal = subtotal.toFixed(2);
   const formattedTotal = total.toFixed(2);
   const formattedSavings = savings.toFixed(2);
+
+  const handlePayment = async () => {
+    const stripe = await stripePromise;
+    const res = await axios.post("/payments/create-checkout-session", {
+      products: cart,
+      coupon: coupon ? coupon.code : null,
+    });
+
+    const session = res.data;
+    const result = await stripe.redirectToCheckout({
+      sessionId: session.id,
+    });
+
+    if (result.error) {
+      console.error("Error:", result.error);
+    }
+  };
 
   return (
     <motion.div
@@ -61,6 +84,7 @@ const OrderSummary = () => {
           className="flex w-full items-center justify-center rounded-lg bg-slate-600 px-5 py-2.5 text-sm font-medium hover:bg-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-300"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          onClick={handlePayment}
         >
           Proceed to Checkout
         </motion.button>

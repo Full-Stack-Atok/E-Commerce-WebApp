@@ -18,13 +18,14 @@ export const createCheckoutSession = async (req, res) => {
 
       return {
         price_data: {
-          currency: "usd",
+          currency: "php",
           product_data: {
             name: product.name,
             images: [product.image],
           },
           unit_amount: amount,
         },
+        quantity: product.quantity || 1,
       };
     });
 
@@ -49,7 +50,7 @@ export const createCheckoutSession = async (req, res) => {
       mode: "payment",
       success_url: `${process.env.CLIENT_URL}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/purchase-cancel`,
-      discount: coupon
+      discounts: coupon
         ? [
             {
               coupon: await createStripeCoupon(coupon.discountPercentage),
@@ -122,12 +123,10 @@ export const checkoutSuccess = async (req, res) => {
     });
   } catch (error) {
     console.log("Error processing successful checkout:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error processing successful checkout",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error processing successful checkout",
+      error: error.message,
+    });
   }
 };
 
