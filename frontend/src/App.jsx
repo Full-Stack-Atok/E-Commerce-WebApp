@@ -7,6 +7,7 @@ import AdminPage from "./pages/AdminPage";
 import CategoryPage from "./pages/CategoryPage";
 import CartPage from "./pages/CartPage";
 import PurchaseSuccessPage from "./pages/PurchaseSuccessPage";
+import PurchaseCancelPage from "./pages/PurchaseCancelPage";
 
 import Navbar from "./components/Navbar";
 
@@ -17,7 +18,6 @@ import { useEffect } from "react";
 import LoadingSpinner from "./components/LoadingSpinner";
 
 import { useCartStore } from "./stores/useCartStore";
-
 
 function App() {
   const { user, checkAuth, checkingAuth } = useUserStore();
@@ -71,6 +71,11 @@ function App() {
             element={
               user ? <PurchaseSuccessPage /> : <Navigate to={"/login"} />
             }
+          />
+
+          <Route
+            path="/purchase-cancel"
+            element={user ? <PurchaseCancelPage /> : <Navigate to="/login" />}
           />
         </Routes>
       </div>

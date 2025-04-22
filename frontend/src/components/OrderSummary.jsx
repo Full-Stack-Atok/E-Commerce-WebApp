@@ -4,23 +4,29 @@ import { Link } from "react-router-dom";
 import { MoveRight } from "lucide-react";
 import { loadStripe } from "@stripe/stripe-js";
 import axios from "../lib/axios";
+import { useEffect } from "react";
 
 const stripePromise = loadStripe(
   "pk_test_51RDLZCH6Ci4DXLwg6A4VCnBcZ0oytcB93rMTpKJqXWnLKIVh84C10me5rSqrubRexAtb1GjUiRy26h4rO1kZ3PZp00fUB3t35f"
 );
 
 const OrderSummary = () => {
-  const { total, subtotal, coupon, isCouponApplied, cart } = useCartStore();
+  const { total, subtotal, coupon, isCouponApplied, cart, calculateTotals } =
+    useCartStore();
   const savings = subtotal - total;
   const formattedSubtotal = subtotal.toFixed(2);
   const formattedTotal = total.toFixed(2);
   const formattedSavings = savings.toFixed(2);
 
+  useEffect(() => {
+    calculateTotals();
+  }, [cart, coupon, calculateTotals]);
+
   const handlePayment = async () => {
     const stripe = await stripePromise;
     const res = await axios.post("/payments/create-checkout-session", {
       products: cart,
-      coupon: coupon ? coupon.code : null,
+      couponCode: coupon ? coupon.code : null,
     });
 
     const session = res.data;
@@ -68,7 +74,7 @@ const OrderSummary = () => {
                 Coupon ({coupon.code})
               </dt>
               <dd className="text-base font-medium text-slate-400">
-                -{coupon.discountPercentage}
+                -{coupon.discountPercentage}%
               </dd>
             </dl>
           )}
