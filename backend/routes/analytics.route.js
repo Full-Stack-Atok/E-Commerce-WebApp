@@ -13,6 +13,7 @@ router.get("/", protectRoute, adminRoute, async (req, res) => {
 
     const endDate = new Date();
     const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 7);
 
     const dailySalesData = await getDailySalesData(startDate, endDate);
 
