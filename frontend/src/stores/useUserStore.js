@@ -78,8 +78,6 @@ export const useUserStore = create((set, get) => ({
 
 // Axios interceptor for token refresh
 
-let refreshPromise = null;
-
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
