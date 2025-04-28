@@ -78,12 +78,17 @@ export const useUserStore = create((set, get) => ({
 
 // Axios interceptor for token refresh
 
-let refreshPromise = null;
-
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // ⛔ If refresh token itself failed, logout immediately
+    if (originalRequest.url.includes("/auth/refresh-token")) {
+      useUserStore.getState().logout();
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
@@ -96,12 +101,12 @@ axios.interceptors.response.use(
         axios.defaults.headers["Authorization"] = `Bearer ${accessToken}`;
         originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
         return axios(originalRequest);
-      } catch (error) {
-        // if refresh fails, redirect to login or handle as needed
+      } catch (refreshError) {
         useUserStore.getState().logout();
-        return Promise.reject(error);
+        return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
   }
 );
