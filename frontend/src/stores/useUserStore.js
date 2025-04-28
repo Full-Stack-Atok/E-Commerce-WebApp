@@ -89,16 +89,12 @@ axios.interceptors.response.use(
 
       try {
         // if a refresh is already in progress, wait for it to complete
-        if (refreshPromise) {
-          await refreshPromise;
-          return axios(originalRequest);
-        }
+        const res = await axios.post("/auth/refresh-token");
+        const { accessToken } = res.data;
 
-        // start a new refresh process
-        refreshPromise = useUserStore.getState().refreshToken();
-        await refreshPromise;
-        refreshPromise = null;
-
+        // Save the new access token and retry the original request
+        axios.defaults.headers["Authorization"] = `Bearer ${accessToken}`;
+        originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
         return axios(originalRequest);
       } catch (error) {
         // if refresh fails, redirect to login or handle as needed
