@@ -33,7 +33,12 @@
     "stripe": "^18.0.0"
   },
   "devDependencies": {
+<<<<<<< HEAD
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.9"
+=======
+    "nodemon": "^3.1.9",
+    "tailwindcss": "^4.1.4"
+>>>>>>> 74eeaf0477f7588ff48d13a7c4659451a42b093a
   }
 }

@@ -101,6 +101,7 @@ export const useCartStore = create((set, get) => ({
       set({ cart: [], coupon: null, total: 0, subtotal: 0 });
     } catch (error) {
       toast.error("Failed to clear cart");
+      console.log(error);
     }
   },
 
