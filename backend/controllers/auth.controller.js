@@ -140,7 +140,7 @@ export const refreshToken = async (req, res) => {
       maxAge: 15 * 60 * 1000,
     });
 
-    res.json({ message: "Token refreshed successfully" });
+    res.json({ accessToken });
   } catch (error) {
     console.log("Error in refresh token controller", error.message);
     res.status(500).json({ message: "Server error", error: error.message });

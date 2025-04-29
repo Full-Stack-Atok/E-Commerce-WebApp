@@ -2,7 +2,7 @@ import { create } from "zustand";
 import axios from "../lib/axios.js";
 import { toast } from "react-hot-toast";
 
-export const useUserStore = create((set) => ({
+export const useUserStore = create((set, get) => ({
   user: null,
   loading: false,
   checkingAuth: true,
@@ -53,7 +53,6 @@ export const useUserStore = create((set) => ({
       const response = await axios.get("/auth/profile");
       set({ user: response.data, checkingAuth: false });
     } catch (error) {
-      console.log(error.message);
       set({ checkingAuth: false, user: null });
     }
   },
@@ -78,30 +77,28 @@ export const useUserStore = create((set) => ({
 
 // Axios interceptor for token refresh
 
-let refreshPromise = null;
-
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // if a refresh is already in progress, wait for it to complete
         if (refreshPromise) {
-          await refreshPromise;
+          const newToken = await refreshPromise;
+          originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
           return axios(originalRequest);
         }
 
-        // start a new refresh process
         refreshPromise = useUserStore.getState().refreshToken();
-        await refreshPromise;
+        const newToken = await refreshPromise;
         refreshPromise = null;
 
+        originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
         return axios(originalRequest);
       } catch (error) {
-        // if refresh fails, redirect to login or handle as needed
         useUserStore.getState().logout();
         return Promise.reject(error);
       }
