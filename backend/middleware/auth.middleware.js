@@ -6,9 +6,7 @@ export const protectRoute = async (req, res, next) => {
     const accessToken = req.cookies.accessToken;
 
     if (!accessToken) {
-      return res
-        .status(401)
-        .json({ message: "Unauthorized - No access token provide" });
+      return res.status(401).json({ message: "No access token provided" });
     }
 
     try {
@@ -20,18 +18,15 @@ export const protectRoute = async (req, res, next) => {
       }
 
       req.user = user;
-
       next();
     } catch (error) {
       if (error.name === "TokenExpiredError") {
-        return res
-          .status(401)
-          .json({ message: "Unauthorized - Access token expired" });
+        return res.status(403).json({ message: "Access token expired" });
       }
-      throw error;
+      return res.status(403).json({ message: "Invalid access token" });
     }
   } catch (error) {
-    console.log("Error in protectRoute middleware", error.message);
+    console.error("Error in protectRoute middleware:", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

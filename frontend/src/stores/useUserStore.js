@@ -2,10 +2,33 @@ import { create } from "zustand";
 import axios from "../lib/axios.js";
 import { toast } from "react-hot-toast";
 
+let refreshPromise = null;
+let refreshInterval = null;
+
+export const startTokenRefresh = () => {
+  if (refreshInterval) return;
+
+  refreshInterval = setInterval(async () => {
+    const { tokenExpiry, refreshToken } = useUserStore.getState();
+    const timeLeft = tokenExpiry - Date.now();
+
+    if (timeLeft < 60 * 1000) {
+      try {
+        await refreshToken();
+      } catch (error) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        useUserStore.getState().logout();
+      }
+    }
+  }, 30 * 1000);
+};
+
 export const useUserStore = create((set, get) => ({
   user: null,
   loading: false,
   checkingAuth: true,
+  tokenExpiry: null,
 
   signup: async ({ name, email, password, confirmPassword }) => {
     set({ loading: true });
@@ -17,10 +40,12 @@ export const useUserStore = create((set, get) => ({
 
     try {
       const res = await axios.post("/auth/signup", { name, email, password });
-      set({ user: res.data, loading: false });
+      const expiry = Date.now() + 15 * 60 * 1000;
+      set({ user: res.data, loading: false, tokenExpiry: expiry });
+      startTokenRefresh();
     } catch (error) {
       set({ loading: false });
-      toast.error(error.response.data.message || "An error occurred");
+      toast.error(error.response?.data?.message || "An error occurred");
     }
   },
 
@@ -29,21 +54,26 @@ export const useUserStore = create((set, get) => ({
 
     try {
       const res = await axios.post("/auth/login", { email, password });
-      set({ user: res.data, loading: false });
+      const expiry = Date.now() + 15 * 60 * 1000;
+      set({ user: res.data, loading: false, tokenExpiry: expiry });
+      startTokenRefresh();
     } catch (error) {
       set({ loading: false });
-      toast.error(error.response.data.message || "An error occurred");
+      toast.error(error.response?.data?.message || "An error occurred");
     }
   },
 
   logout: async () => {
     try {
       await axios.post("/auth/logout");
-      set({ user: null });
     } catch (error) {
       toast.error(
         error.response?.data?.message || "An error occurred during logout"
       );
+    } finally {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+      set({ user: null });
     }
   },
 
@@ -52,20 +82,23 @@ export const useUserStore = create((set, get) => ({
     try {
       const response = await axios.get("/auth/profile");
       set({ user: response.data, checkingAuth: false });
+      const expiry = Date.now() + 15 * 60 * 1000;
+      set({ tokenExpiry: expiry });
+      startTokenRefresh();
     } catch (error) {
       set({ checkingAuth: false, user: null });
     }
   },
 
   refreshToken: async () => {
-    // Prevent multiple simultaneous refresh attempts
     if (get().checkingAuth) return;
 
     set({ checkingAuth: true });
     try {
       const response = await axios.post("/auth/refresh-token");
-      set({ checkingAuth: false });
-      return response.data;
+      const expiry = Date.now() + 15 * 60 * 1000;
+      set({ checkingAuth: false, tokenExpiry: expiry });
+      return response.data.accessToken;
     } catch (error) {
       set({ checkingAuth: false });
       throw error;
@@ -73,36 +106,35 @@ export const useUserStore = create((set, get) => ({
   },
 }));
 
-//TODO: Implement the axios interceptors for refreshing access token
-
-// Axios interceptor for token refresh
-
+// ✅ Axios interceptor to handle token refresh
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only retry on expired token
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.message === "Access token expired" &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
 
       try {
-        if (refreshPromise) {
-          const newToken = await refreshPromise;
-          originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-          return axios(originalRequest);
+        if (!refreshPromise) {
+          refreshPromise = useUserStore.getState().refreshToken();
         }
 
-        refreshPromise = useUserStore.getState().refreshToken();
-        const newToken = await refreshPromise;
+        await refreshPromise;
         refreshPromise = null;
 
-        originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
         return axios(originalRequest);
-      } catch (error) {
+      } catch (refreshError) {
         useUserStore.getState().logout();
-        return Promise.reject(error);
+        return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
   }
 );
