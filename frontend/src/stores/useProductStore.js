@@ -16,6 +16,8 @@ export const useProductStore = create((set) => ({
         products: [...prevState.products, res.data],
         loading: false,
       }));
+      // Toast for successful product creation
+      toast.success("Product created successfully!");
     } catch (error) {
       toast.error(error.response.data.error);
       set({ loading: false });
@@ -54,6 +56,7 @@ export const useProductStore = create((set) => ({
         ),
         loading: false,
       }));
+      toast.success("Product deleted successfully!");
     } catch (error) {
       set({ loading: false });
       toast.error(error.response.data.error || "Failed to delete product");
@@ -73,6 +76,7 @@ export const useProductStore = create((set) => ({
         ),
         loading: false,
       }));
+      toast.success("Product updated successfully!");
     } catch (error) {
       set({ loading: false });
       toast.error(error.response.data.error || "Failed to update product");
