@@ -4,9 +4,10 @@
   "description": "Project for Software Engineering and CS Elective",
   "main": "backend/server.js",
   "scripts": {
-    "dev": "set NODE_ENV=development && nodemon backend/server.js",
-    "start": "set NODE_ENV=production && node backend/server.js",
-    "build": "npm install && npm install --prefix frontend && npm run build --prefix frontend"
+    "dev": "nodemon backend/server.js",
+    "postinstall": "npm install --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "node backend/server.js"
   },
   "repository": {
     "type": "git",

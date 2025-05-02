@@ -1,9 +1,9 @@
-// backend/server.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
+import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/auth.route.js";
 import productRoutes from "./routes/product.route.js";
@@ -18,28 +18,23 @@ import { connectDB } from "./lib/db.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-const __dirname = path.resolve();
 
-// Log every incoming request (for troubleshooting)
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.originalUrl}`);
-  next();
-});
+// ── fix __dirname in ES modules ──────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// 1) JSON parser & cookie parser
+// ── 1) Global middleware ────────────────────────────────────────────────────
+// parse JSON bodies, cookies, enable CORS
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-
-// 2) CORS — only allow your Vite dev server (and include credentials)
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   })
 );
 
-// 3) Mount routes
+// ── 2) API routes ────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -48,15 +43,18 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// 4) Serve frontend in production
+// ── 3) Static & SPA fallback (production only) ───────────────────────────────
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "/frontend/dist")));
+  const clientDist = path.join(__dirname, "../frontend/dist");
+  // serve static files
+  app.use(express.static(clientDist));
+  // for any GET that's not /api/*, return index.html
   app.get("*", (req, res) => {
-    res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
+    res.sendFile(path.join(clientDist, "index.html"));
   });
 }
 
-// 5) Launch
+// ── 4) Launch ───────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   connectDB();
