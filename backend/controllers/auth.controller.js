@@ -111,7 +111,7 @@ export const logout = async (req, res) => {
   }
 };
 
-// This will refresh the access token
+// this will refresh the access token
 export const refreshToken = async (req, res) => {
   try {
     const refreshToken = req.cookies.refreshToken;
@@ -140,9 +140,9 @@ export const refreshToken = async (req, res) => {
       maxAge: 15 * 60 * 1000,
     });
 
-    res.json({ accessToken });
+    res.json({ message: "Token refreshed successfully" });
   } catch (error) {
-    console.log("Error in refresh token controller", error.message);
+    console.log("Error in refreshToken controller", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

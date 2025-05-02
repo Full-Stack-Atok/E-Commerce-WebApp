@@ -1,6 +1,9 @@
+// src/pages/HomePage.jsx
 import { useEffect } from "react";
+import { motion } from "framer-motion";
 import CategoryItem from "../components/CategoryItem";
 import FeaturedProducts from "../components/FeaturedProducts";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useProductStore } from "../stores/useProductStore";
 
 const categories = [
@@ -14,7 +17,17 @@ const categories = [
   { href: "/gadgets", name: "Gadgets", imageUrl: "/gadgets.png" },
 ];
 
-const HomePage = () => {
+// simple variants to stagger children
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.1 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
+export default function HomePage() {
   const { fetchFeaturedProducts, products, isLoading } = useProductStore();
 
   useEffect(() => {
@@ -22,27 +35,52 @@ const HomePage = () => {
   }, [fetchFeaturedProducts]);
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <div className="relative min-h-screen text-white overflow-hidden">
-        <h1 className="text-center text-5xl sm:text-6xl font-bold text-slate-100 mb-4">
+    <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <motion.div variants={container} initial="hidden" animate="show">
+        {/* Main headline */}
+        <motion.h1
+          variants={item}
+          className="text-center text-5xl sm:text-6xl font-bold text-slate-100 mb-4"
+        >
           Explore Our Categories
-        </h1>
-        <p className="text-center text-xl text-slate-200 mb-12">
+        </motion.h1>
+
+        <motion.p
+          variants={item}
+          className="text-center text-xl text-slate-200 mb-12"
+        >
           Discover the latest trends in eco-friendly fashion
-        </p>
+        </motion.p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((category) => (
-            <CategoryItem category={category} key={category.name} />
+        {/* Categories Grid */}
+        <motion.ul
+          variants={container}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"
+        >
+          {categories.map((cat) => (
+            <motion.li key={cat.name} variants={item}>
+              <CategoryItem category={cat} />
+            </motion.li>
           ))}
-        </div>
+        </motion.ul>
 
-        {!isLoading && products.length > 0 && (
-          <FeaturedProducts featuredProducts={products} />
-        )}
-      </div>
-    </div>
+        {/* Featured Products */}
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner />
+          </div>
+        ) : products.length > 0 ? (
+          <>
+            <motion.h2
+              variants={item}
+              className="text-4xl font-semibold text-slate-100 mb-6"
+            >
+              Featured Products
+            </motion.h2>
+            <FeaturedProducts featuredProducts={products} />
+          </>
+        ) : null}
+      </motion.div>
+    </section>
   );
-};
-
-export default HomePage;
+}

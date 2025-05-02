@@ -1,13 +1,12 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
-import axios from "../lib/axios.js";
+import axios from "../lib/axios";
 
 export const useProductStore = create((set) => ({
   products: [],
   loading: false,
 
   setProducts: (products) => set({ products }),
-
   createProduct: async (productData) => {
     set({ loading: true });
     try {
@@ -16,14 +15,11 @@ export const useProductStore = create((set) => ({
         products: [...prevState.products, res.data],
         loading: false,
       }));
-      // Toast for successful product creation
-      toast.success("Product created successfully!");
     } catch (error) {
       toast.error(error.response.data.error);
       set({ loading: false });
     }
   },
-
   fetchAllProducts: async () => {
     set({ loading: true });
     try {
@@ -34,7 +30,6 @@ export const useProductStore = create((set) => ({
       toast.error(error.response.data.error || "Failed to fetch products");
     }
   },
-
   fetchProductsByCategory: async (category) => {
     set({ loading: true });
     try {
@@ -45,7 +40,6 @@ export const useProductStore = create((set) => ({
       toast.error(error.response.data.error || "Failed to fetch products");
     }
   },
-
   deleteProduct: async (productId) => {
     set({ loading: true });
     try {
@@ -56,13 +50,11 @@ export const useProductStore = create((set) => ({
         ),
         loading: false,
       }));
-      toast.success("Product deleted successfully!");
     } catch (error) {
       set({ loading: false });
       toast.error(error.response.data.error || "Failed to delete product");
     }
   },
-
   toggleFeaturedProduct: async (productId) => {
     set({ loading: true });
     try {
@@ -76,13 +68,11 @@ export const useProductStore = create((set) => ({
         ),
         loading: false,
       }));
-      toast.success("Product updated successfully!");
     } catch (error) {
       set({ loading: false });
       toast.error(error.response.data.error || "Failed to update product");
     }
   },
-
   fetchFeaturedProducts: async () => {
     set({ loading: true });
     try {

@@ -1,19 +1,20 @@
-import { BarChart, PlusCircle, ShoppingBasket } from "lucide-react";
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-
+// src/pages/AdminPage.jsx
+import React, { useState, useEffect, Suspense, lazy } from "react";
+import { PlusCircle, ShoppingBasket, BarChart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import CreateProductForm from "../components/CreateProductForm";
-import ProductList from "../components/ProductList";
-import AnalyticsTab from "../components/AnalyticsTab";
 import { useProductStore } from "../stores/useProductStore";
 
-const tabs = [
-  { id: "create", label: "Create Product", icon: PlusCircle },
-  { id: "products", label: "Products", icon: ShoppingBasket },
-  { id: "analytics", label: "Analytics", icon: BarChart },
+const ProductList = lazy(() => import("../components/ProductList"));
+const AnalyticsTab = lazy(() => import("../components/AnalyticsTab"));
+
+const TABS = [
+  { id: "create", label: "Create Product", Icon: PlusCircle },
+  { id: "products", label: "Products", Icon: ShoppingBasket },
+  { id: "analytics", label: "Analytics", Icon: BarChart },
 ];
 
-const AdminPage = () => {
+export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("create");
   const { fetchAllProducts } = useProductStore();
 
@@ -21,40 +22,92 @@ const AdminPage = () => {
     fetchAllProducts();
   }, [fetchAllProducts]);
 
-  return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="relative z-10 container mx-auto px-4 py-16">
-        <motion.h1
-          className="text-4xl font-bold mb-8 text-slate-200 text-center"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          Admin Dashboard
-        </motion.h1>
+  // simple fade settings
+  const fadeProps = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.25 },
+  };
 
-        <div className="flex justify-center mb-8">
-          {tabs.map((tab) => (
+  return (
+    <div className="container mx-auto px-4 py-12">
+      <motion.h1
+        className="text-4xl font-bold text-center mb-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        Admin Dashboard
+      </motion.h1>
+
+      {/* Tabs */}
+      <div role="tablist" className="flex justify-center space-x-4 mb-8">
+        {TABS.map(({ id, label, Icon }) => {
+          const selected = activeTab === id;
+          return (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 mx-2 rounded-md transition-colors duration-200 ${
-                activeTab === tab.id
-                  ? "bg-slate-600 text-white"
-                  : "bg-gray-800 text-gray-300 hover:bg-gray-600"
-              }`}
+              key={id}
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(id)}
+              className={`
+                flex items-center gap-2 px-3 py-1 rounded-md transition-colors
+                ${
+                  selected
+                    ? "border-b-2 border-sky-500 text-white"
+                    : "text-gray-300 hover:text-white"
+                }
+              `}
             >
-              <tab.icon className="mr-2 h-5 w-5" />
-              {tab.label}
+              <Icon className="h-5 w-5" />
+              <span className="hidden sm:inline">{label}</span>
             </button>
-          ))}
-        </div>
-        {activeTab === "create" && <CreateProductForm />}
-        {activeTab === "products" && <ProductList />}
-        {activeTab === "analytics" && <AnalyticsTab />}
+          );
+        })}
+      </div>
+
+      {/* Panels */}
+      <div className="relative min-h-[400px]">
+        <AnimatePresence initial={false} mode="sync">
+          {activeTab === "create" && (
+            <motion.div
+              key="create"
+              {...fadeProps}
+              className="absolute inset-0"
+              role="tabpanel"
+            >
+              <CreateProductForm />
+            </motion.div>
+          )}
+
+          {activeTab === "products" && (
+            <motion.div
+              key="products"
+              {...fadeProps}
+              className="absolute inset-0"
+              role="tabpanel"
+            >
+              <Suspense fallback={<p className="text-center">Loading…</p>}>
+                <ProductList />
+              </Suspense>
+            </motion.div>
+          )}
+
+          {activeTab === "analytics" && (
+            <motion.div
+              key="analytics"
+              {...fadeProps}
+              className="absolute inset-0"
+              role="tabpanel"
+            >
+              <Suspense fallback={<p className="text-center">Loading…</p>}>
+                <AnalyticsTab />
+              </Suspense>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
-};
-
-export default AdminPage;
+}

@@ -1,56 +1,85 @@
+// src/components/CartItem.jsx
 import { Minus, Plus, Trash } from "lucide-react";
+import { motion } from "framer-motion";
 import { useCartStore } from "../stores/useCartStore";
 
-const CartItem = ({ item }) => {
+// Philippine peso formatter
+const money = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 0,
+});
+
+export default function CartItem({ item }) {
   const { removeFromCart, updateQuantity } = useCartStore();
 
   return (
-    <div className="rounded-lg border p-4 shadow-sm border-white bg-gray-800 md:p-6">
-      <div className="space-y-4 md:flex md:items-center md:justify-between md:gap-6 md:space-y-0">
-        <div className="shrink-0 md:order-1">
-          <img className="h-20 md:h-32 rounded object-cover" src={item.image} />
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="relative bg-gradient-to-br from-slate-700 to-slate-800 rounded-lg p-4 shadow-lg overflow-hidden"
+    >
+      {/* Remove button */}
+      <motion.button
+        onClick={() => removeFromCart(item._id)}
+        whileHover={{ scale: 1.2 }}
+        className="absolute top-3 right-3 text-slate-400 hover:text-red-400"
+        aria-label="Remove item"
+      >
+        <Trash className="h-5 w-5" />
+      </motion.button>
+
+      <div className="md:flex md:items-center md:justify-between space-y-4 md:space-y-0 md:gap-6">
+        {/* Image */}
+        <div className="flex-shrink-0">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="h-24 w-24 md:h-32 md:w-32 rounded-lg object-cover"
+          />
         </div>
-        <label className="sr-only">Choose quantity:</label>
 
-        <div className="flex items-center justify-between md:order-3 md:justify-end">
-          <div className="flex items-center gap-2">
-            <button
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-600 bg-gray-700 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              onClick={() => updateQuantity(item._id, item.quantity - 1)}
-            >
-              <Minus className="text-gray-300" />
-            </button>
-            <p>{item.quantity}</p>
-            <button
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-gray-600 bg-gray-700 hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500"
-              onClick={() => updateQuantity(item._id, item.quantity + 1)}
-            >
-              <Plus className="text-gray-200" />
-            </button>
-          </div>
-
-          <div className="text-end md:order-4 md:w-32">
-            <p className="text-base font-bold text-slate-300">₱{item.price}</p>
-          </div>
-        </div>
-
-        <div className="w-full min-w-0 flex-1 space-y-4 md:order-2 md:max-w-md">
-          <p className="text-base font-medium text-white hover:text-sky-400 hover:underline">
+        {/* Name & Description */}
+        <div className="flex-1 px-2 space-y-1">
+          <h3 className="text-lg font-semibold text-slate-100 leading-snug">
             {item.name}
+          </h3>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            {item.description}
           </p>
-          <p className="text-sm text-gray-400">{item.description}</p>
-          <div className="flex items-center gap-4">
-            <button
-              className="inline-flex items-center text-sm font-medium text-red-400 hover:text-red-300 hover:underline"
-              onClick={() => removeFromCart(item._id)}
-            >
-              <Trash />
-            </button>
-          </div>
+        </div>
+
+        {/* Quantity controls */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => updateQuantity(item._id, item.quantity - 1)}
+            disabled={item.quantity <= 1}
+            className="flex h-7 w-7 items-center justify-center rounded border border-slate-600 bg-slate-700 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50"
+          >
+            <Minus className="h-4 w-4 text-slate-200" />
+          </button>
+          <span className="w-6 text-center text-slate-100">
+            {item.quantity}
+          </span>
+          <button
+            onClick={() => updateQuantity(item._id, item.quantity + 1)}
+            className="flex h-7 w-7 items-center justify-center rounded border border-slate-600 bg-slate-700 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400"
+          >
+            <Plus className="h-4 w-4 text-slate-200" />
+          </button>
+        </div>
+
+        {/* Price */}
+        <div className="w-28 text-right">
+          <p className="text-lg font-bold text-slate-100">
+            {money.format(item.price)}
+          </p>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
-};
-
-export default CartItem;
+}

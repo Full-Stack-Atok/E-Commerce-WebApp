@@ -9,7 +9,7 @@ export const getAnalyticsData = async () => {
   const salesData = await Order.aggregate([
     {
       $group: {
-        _id: null, // it groups all document together,
+        _id: null, // it groups all documents together,
         totalSales: { $sum: 1 },
         totalRevenue: { $sum: "$totalAmount" },
       },
@@ -31,15 +31,12 @@ export const getAnalyticsData = async () => {
 
 export const getDailySalesData = async (startDate, endDate) => {
   try {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
     const dailySalesData = await Order.aggregate([
       {
         $match: {
           createdAt: {
-            $gte: start,
-            $lte: end,
+            $gte: startDate,
+            $lte: endDate,
           },
         },
       },
@@ -52,21 +49,18 @@ export const getDailySalesData = async (startDate, endDate) => {
       },
       { $sort: { _id: 1 } },
     ]);
-    // example of dailySalesData
-    //   [
-    //     {
-    //       _id: "2025-04-14",
-    //       sales: 12,
-    //       revenue: 1450.75,
-    //     },
-    //     {
-    //       _id: "2025-04-15",
-    //       sales: 2,
-    //       revenue: 145.75,
-    //     },
-    //   ];
 
-    const dateArray = getDatesInRange(start, end);
+    // example of dailySalesData
+    // [
+    // 	{
+    // 		_id: "2024-08-18",
+    // 		sales: 12,
+    // 		revenue: 1450.75
+    // 	},
+    // ]
+
+    const dateArray = getDatesInRange(startDate, endDate);
+    // console.log(dateArray) // ['2024-08-18', '2024-08-19', ... ]
 
     return dateArray.map((date) => {
       const foundData = dailySalesData.find((item) => item._id === date);
@@ -82,11 +76,11 @@ export const getDailySalesData = async (startDate, endDate) => {
   }
 };
 
-function getDatesInRange(start, end) {
+function getDatesInRange(startDate, endDate) {
   const dates = [];
-  let currentDate = new Date(start);
+  let currentDate = new Date(startDate);
 
-  while (currentDate <= end) {
+  while (currentDate <= endDate) {
     dates.push(currentDate.toISOString().split("T")[0]);
     currentDate.setDate(currentDate.getDate() + 1);
   }

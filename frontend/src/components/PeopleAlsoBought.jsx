@@ -11,32 +11,44 @@ const PeopleAlsoBought = () => {
   useEffect(() => {
     const fetchRecommendations = async () => {
       try {
-        const res = await axios.get("/products/recommendations");
-        setRecommendations(res.data);
+        const { data } = await axios.get("/products/recommendations");
+        setRecommendations(data);
       } catch (error) {
         toast.error(
-          error.response.data.message ||
+          error.response?.data?.message ||
             "An error occurred while fetching recommendations"
         );
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchRecommendations();
   }, []);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) {
+    return (
+      <section className="mt-8">
+        <LoadingSpinner />
+      </section>
+    );
+  }
 
   return (
-    <div className="mt-8">
-      <h3 className="text-2xl font-semibold text-white">People also bought</h3>
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-2">
-        {recommendations.map((product) => (
-          <ProductCard key={product._id} product={product} />
-        ))}
+    <section className="mt-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <h3 className="text-2xl font-semibold text-white mb-6">
+          People Also Bought
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {recommendations.map((product) => (
+            <div key={product._id} className="flex justify-center">
+              {/* `compact` makes it that smaller “People Also Bought” look */}
+              <ProductCard product={product} compact />
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };
 

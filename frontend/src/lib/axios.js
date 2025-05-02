@@ -1,9 +1,14 @@
+// src/lib/axios.js
 import axios from "axios";
 
-const axiosInstance = axios.create({
-  baseURL:
-    import.meta.mode === "development" ? "http://localhost:5000/api" : "/api",
-  withCredentials: true, // send cookies to the server
+const instance = axios.create({
+  baseURL: import.meta.env.DEV
+    ? "http://localhost:5000/api"
+    : import.meta.env.VITE_PROD_API_URL,
+  withCredentials: true,
 });
 
-export default axiosInstance;
+// Debug: confirm where requests will go
+console.log("🚀 Axios baseURL:", instance.defaults.baseURL);
+
+export default instance;

@@ -1,5 +1,6 @@
+// src/components/Navbar.jsx
 import { ShoppingCart, UserPlus, LogIn, LogOut, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 
@@ -8,80 +9,100 @@ const Navbar = () => {
   const isAdmin = user?.role === "admin";
   const { cart } = useCartStore();
 
+  // Reusable class for your auth/dashboard buttons
+  const authBtn = `
+    bg-slate-600 hover:bg-slate-700 text-white 
+    py-2 px-4 rounded-md flex items-center 
+    transition duration-300 ease-in-out
+  `.trim();
+
+  // Reusable class for your text links
+  const linkTxt = `
+    text-slate-700 hover:text-blue-600 
+    transition duration-300 ease-in-out
+  `.trim();
+
   return (
-    <header className="fixed top-0 left-0 w-full bg-white bg-opacity-70 backdrop-blur-md shadow-md z-40 transition-all duration-300 border-b border-slate-200">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between">
-          <Link
+    <header
+      className="
+      fixed top-0 left-0 w-full 
+      bg-white bg-opacity-70 backdrop-blur-md 
+      shadow-md z-40 transition-all duration-300 
+      border-b border-slate-200
+    "
+    >
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Logo */}
+        <Link to="/" className="text-2xl font-bold text-slate-800">
+          Rocket Bay
+        </Link>
+
+        {/* Navigation */}
+        <nav className="flex items-center gap-4">
+          {/* Home */}
+          <NavLink
             to="/"
-            className="text-2xl font-bold text-slate-800 items-center space-x-2 flex"
+            className={({ isActive }) =>
+              `${linkTxt} ${isActive ? "font-semibold underline" : ""}`
+            }
           >
-            Rocket Bay
-          </Link>
+            Home
+          </NavLink>
 
-          <nav className="flex flex-wrap items-center gap-4">
-            <Link
-              to={"/"}
-              className="text-slate-700 hover:text-blue-600 transition duration-300 ease-in-out"
+          {/* Cart */}
+          {user && (
+            <NavLink
+              to="/cart"
+              className={({ isActive }) =>
+                `relative inline-flex items-center gap-1 ${linkTxt} ${
+                  isActive ? "font-semibold underline" : ""
+                }`
+              }
             >
-              Home
+              <ShoppingCart size={20} />
+              <span className="hidden sm:inline">Cart</span>
+              {cart.length > 0 && (
+                <span
+                  className="
+                  absolute -top-2 -left-2 flex h-5 w-5 
+                  items-center justify-center rounded-full 
+                  bg-blue-600 text-xs text-white
+                  transition duration-300 ease-in-out
+                "
+                >
+                  {cart.length}
+                </span>
+              )}
+            </NavLink>
+          )}
+
+          {/* Dashboard (admin only) */}
+          {isAdmin && (
+            <Link to="/secret-dashboard" className={authBtn}>
+              <Lock size={18} />
+              <span className="hidden sm:inline ml-1">Dashboard</span>
             </Link>
-            {user && (
-              <Link
-                to={"/cart"}
-                className="relative group text-slate-700 hover:text-blue-600 transition duration-300 ease-in-out"
-              >
-                <ShoppingCart
-                  className="inline-block mr-1 group-hover:text-blue-600"
-                  size={20}
-                />
-                <span className="hidden sm:inline">Cart</span>
-                {cart.length > 0 && (
-                  <span className="absolute -top-2 -left-2 bg-blue-600 text-white rounded-full px-2 py-0.5 text-xs group-hover:bg-blue-400 transition duration-300 ease-in-out">
-                    {cart.length}
-                  </span>
-                )}
-              </Link>
-            )}
+          )}
 
-            {isAdmin && (
-              <Link
-                className="bg-slate-600 hover:bg-slate-700 text-white px-3 py-1 rounded-md font-medium transition duration-300 ease-in-out flex items-center"
-                to={"/secret-dashboard"}
-              >
-                <Lock className="inline-block mr-1" size={18} />
-                <span className="hidden sm:inline">Dashboard</span>
+          {/* Login / Signup or Logout */}
+          {user ? (
+            <button onClick={logout} className={authBtn}>
+              <LogOut size={18} />
+              <span className="hidden sm:inline ml-1">Logout</span>
+            </button>
+          ) : (
+            <>
+              <Link to="/signup" className={authBtn}>
+                <UserPlus size={18} />
+                <span className="hidden sm:inline ml-1">Sign Up</span>
               </Link>
-            )}
-
-            {user ? (
-              <button
-                className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
-                onClick={logout}
-              >
-                <LogOut size={18} />
-                <span className="hidden sm:inline ml-2">Logout</span>
-              </button>
-            ) : (
-              <>
-                <Link
-                  to={"/signup"}
-                  className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
-                >
-                  <UserPlus className="mr-2" size={18} />
-                  Sign Up
-                </Link>
-                <Link
-                  to={"/login"}
-                  className="bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-md flex items-center transition duration-300 ease-in-out"
-                >
-                  <LogIn className="mr-2" size={18} />
-                  Login
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
+              <Link to="/login" className={authBtn}>
+                <LogIn size={18} />
+                <span className="hidden sm:inline ml-1">Login</span>
+              </Link>
+            </>
+          )}
+        </nav>
       </div>
     </header>
   );
