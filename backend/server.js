@@ -1,4 +1,3 @@
-// backend/server.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -16,8 +15,6 @@ import { connectDB } from "./lib/db.js";
 
 dotenv.config();
 const app = express();
-
-// IMPORTANT: On Render, PORT is provided via env var. No hard–coded fallback.
 const PORT = process.env.PORT;
 
 // ─── MIDDLEWARE ─────────────────────────────────────────────────────────────
@@ -25,12 +22,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "https://rocket-bay.onrender.com",
-    credentials: true,
+    origin: process.env.CLIENT_URL, // e.g. https://rocket-bay.onrender.com
+    credentials: true, // allow cookies
   })
 );
 
-// Optional health check for Render’s port scan
+// Health check
 app.get("/__health", (_req, res) => res.send("OK"));
 
 // ─── API ROUTES ──────────────────────────────────────────────────────────────
@@ -46,15 +43,14 @@ app.use("/api/chatbot", chatbotRoute);
 connectDB()
   .then(() => {
     if (!PORT) {
-      console.error("❌ No PORT environment variable defined, exiting.");
+      console.error("❌ No PORT defined, exiting.");
       process.exit(1);
     }
-    // Bind to 0.0.0.0 so Render’s health check on the assigned port can connect
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Server listening on http://0.0.0.0:${PORT}`);
+      console.log(`🚀 Listening on http://0.0.0.0:${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("❌ Failed to connect to DB:", err);
+    console.error("❌ DB connection failed:", err);
     process.exit(1);
   });
