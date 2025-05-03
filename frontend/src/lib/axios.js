@@ -2,10 +2,9 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: import.meta.env.DEV ? "http://localhost:5000/api" : "/api", // <-- all calls become relative to your current host
+  baseURL: import.meta.env.DEV ? "http://localhost:5000/api" : "/api", // ALWAYS relative in prod
   withCredentials: true,
 });
 
 console.log("🚀 Axios baseURL:", instance.defaults.baseURL);
-
 export default instance;
