@@ -1,3 +1,4 @@
+// backend/server.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -17,21 +18,24 @@ import { connectDB } from "./lib/db.js";
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000;
 
+// IMPORTANT: On Render, PORT is provided via env var. No hard–coded fallback.
+const PORT = process.env.PORT;
+
+// ─── MIDDLEWARE ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: process.env.CLIENT_URL || "https://your-frontend-domain.com",
     credentials: true,
   })
 );
 
-// Health check
-app.get("/__health", (req, res) => res.send("OK"));
+// Optional health check for Render’s port scan
+app.get("/__health", (_req, res) => res.send("OK"));
 
-// API routes
+// ─── API ROUTES ──────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -40,20 +44,28 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// Serve React build
+// ─── SERVE REACT APP ─────────────────────────────────────────────────────────
+// ESM __dirname shim
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 const clientBuildPath = path.resolve(__dirname, "../frontend/dist");
 app.use(express.static(clientBuildPath));
-app.get("/*", (req, res) =>
-  res.sendFile(path.join(clientBuildPath, "index.html"))
-);
 
-// Start server bound to IPv4
+app.get("/*", (_req, res) => {
+  res.sendFile(path.join(clientBuildPath, "index.html"));
+});
+
+// ─── START SERVER ────────────────────────────────────────────────────────────
 connectDB()
   .then(() => {
-    app.listen(PORT, "127.0.0.1", () => {
-      console.log(`🚀 Server running on http://127.0.0.1:${PORT}`);
+    if (!PORT) {
+      console.error("❌ No PORT environment variable defined, exiting.");
+      process.exit(1);
+    }
+    // Bind to 0.0.0.0 so Render’s health check on the assigned port can connect
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Server listening on http://0.0.0.0:${PORT}`);
     });
   })
   .catch((err) => {
