@@ -1,26 +1,28 @@
-// backend/controllers/auth.controller.js
 import jwt from "jsonwebtoken";
-import { promisify } from "util";
 import User from "../models/user.model.js";
+import { redis } from "../lib/redis.js";
 
-// Helper to sign a JWT
-const signToken = (id, secret, expiresIn) =>
-  jwt.sign({ id }, secret, { expiresIn });
+// Helper to sign with { userId }
+const signToken = (userId, secret, expiresIn) =>
+  jwt.sign({ userId }, secret, { expiresIn });
 
-// Cookie options shared by signup/login/refresh
-const COOKIE_OPTIONS = {
+// Cookie options for cross-site auth
+const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", // only over HTTPS in prod
-  sameSite: "none", // allow cross-site
-  path: "/", // root path
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "none",
+  path: "/",
 };
 
-// ─── SIGNUP ─────────────────────────────────────────────────────────────────
 export const signup = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.create({ email, password });
+    const { email, password, name } = req.body;
+    if (await User.exists({ email })) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+    const user = await User.create({ name, email, password });
 
+    // Generate tokens
     const accessToken = signToken(
       user._id,
       process.env.ACCESS_TOKEN_SECRET,
@@ -32,30 +34,43 @@ export const signup = async (req, res) => {
       "7d"
     );
 
+    // Store refresh token in Redis
+    await redis.set(
+      `refresh_token:${user._id}`,
+      refreshToken,
+      "EX",
+      7 * 24 * 60 * 60
+    );
+
+    // Set cookies
     res
       .cookie("accessToken", accessToken, {
-        ...COOKIE_OPTIONS,
+        ...COOKIE_OPTS,
         maxAge: 15 * 60 * 1000,
       }) // 15m
       .cookie("refreshToken", refreshToken, {
-        ...COOKIE_OPTIONS,
-        path: "/api/auth/refresh-token",
+        ...COOKIE_OPTS,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       }) // 7d
       .status(201)
-      .json({ email: user.email });
+      .json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("signup error:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
-// ─── LOGIN ──────────────────────────────────────────────────────────────────
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const accessToken = signToken(
@@ -69,62 +84,80 @@ export const login = async (req, res) => {
       "7d"
     );
 
+    await redis.set(
+      `refresh_token:${user._id}`,
+      refreshToken,
+      "EX",
+      7 * 24 * 60 * 60
+    );
+
     res
       .cookie("accessToken", accessToken, {
-        ...COOKIE_OPTIONS,
+        ...COOKIE_OPTS,
         maxAge: 15 * 60 * 1000,
       })
       .cookie("refreshToken", refreshToken, {
-        ...COOKIE_OPTIONS,
-        path: "/api/auth/refresh-token",
+        ...COOKIE_OPTS,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
-      .json({ email: user.email });
+      .json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
   } catch (err) {
-    res.status(500).json({ error: "Server error" });
+    console.error("login error:", err);
+    res.status(500).json({ message: err.message });
   }
 };
 
-// ─── LOGOUT ─────────────────────────────────────────────────────────────────
-export const logout = (_req, res) => {
-  res
-    .clearCookie("accessToken", { path: "/" })
-    .clearCookie("refreshToken", { path: "/api/auth/refresh-token" })
-    .json({ message: "Logged out" });
-};
-
-// ─── REFRESH TOKEN ───────────────────────────────────────────────────────────
 export const refreshToken = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
-    if (!token) {
-      return res.status(401).json({ message: "No refresh token provided" });
+    if (!token) return res.status(401).json({ message: "No refresh token" });
+
+    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+    const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
+    if (storedToken !== token) {
+      return res.status(401).json({ message: "Invalid refresh token" });
     }
 
-    const decoded = await promisify(jwt.verify)(
-      token,
-      process.env.REFRESH_TOKEN_SECRET
-    );
     const newAccessToken = signToken(
-      decoded.id,
+      decoded.userId,
       process.env.ACCESS_TOKEN_SECRET,
       "15m"
     );
-
     res
       .cookie("accessToken", newAccessToken, {
-        ...COOKIE_OPTIONS,
+        ...COOKIE_OPTS,
         maxAge: 15 * 60 * 1000,
       })
       .json({ message: "Access token refreshed" });
   } catch (err) {
-    res.status(401).json({ message: "Invalid or expired refresh token" });
+    console.error("refreshToken error:", err);
+    res.status(401).json({ message: "Could not refresh token" });
   }
 };
 
-// ─── PROFILE ─────────────────────────────────────────────────────────────────
+export const logout = async (req, res) => {
+  try {
+    const token = req.cookies.refreshToken;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+      await redis.del(`refresh_token:${decoded.userId}`);
+    }
+    res
+      .clearCookie("accessToken", { path: "/" })
+      .clearCookie("refreshToken", { path: "/" })
+      .json({ message: "Logged out successfully" });
+  } catch (err) {
+    console.error("logout error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getProfile = async (req, res) => {
-  // protectRoute middleware already verified req.user
-  const { email, role } = req.user;
-  res.json({ email, role });
+  // protectRoute middleware has loaded req.user
+  res.json(req.user);
 };
