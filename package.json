@@ -4,7 +4,8 @@
   "type": "module",
   "main": "backend/server.js",
   "scripts": {
-    "frontend-install": "npm ci --prefix frontend",
+    "preinstall": "rimraf frontend/node_modules/@eslint/eslintrc",
+    "frontend-install": "npm install --prefix frontend",
     "frontend-build": "npm run build --prefix frontend",
     "postinstall": "npm run frontend-install && npm run frontend-build",
     "dev": "npm install && npm run postinstall && nodemon backend/server.js",
@@ -26,6 +27,7 @@
     "stripe": "^18.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "rimraf": "^6.0.1"
   }
 }
