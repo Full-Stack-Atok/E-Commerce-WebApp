@@ -44,19 +44,27 @@ const OrderSummary = () => {
 
   const handlePayment = useCallback(async () => {
     const stripe = await stripePromise;
+
+    // Build payload: include couponCode only if applied
+    const payload = {
+      products: cart,
+      ...(isCouponApplied && coupon?.code ? { couponCode: coupon.code } : {}),
+    };
+
     try {
-      const { data } = await axios.post("/payments/create-checkout-session", {
-        products: cart,
-        couponCode: coupon?.code || null,
-      });
+      const { data } = await axios.post(
+        "/payments/create-checkout-session",
+        payload
+      );
       const sessionId = data.id;
       if (!sessionId) throw new Error("No session ID from API");
+
       const { error } = await stripe.redirectToCheckout({ sessionId });
       if (error) console.error("Stripe redirect error:", error.message);
     } catch (err) {
       console.error("Checkout API error:", err.response?.data || err.message);
     }
-  }, [cart, coupon]);
+  }, [cart, coupon, isCouponApplied]);
 
   return (
     <motion.div

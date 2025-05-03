@@ -1,6 +1,6 @@
 // src/components/ChatBot.jsx
 import React, { useState, useRef, useEffect } from "react";
-import axios from "../lib/axios";
+import axios from "../lib/axios"; // make sure this instance has withCredentials:true
 import { SendHorizonal } from "lucide-react";
 import { useCartStore } from "../stores/useCartStore";
 import { useUserStore } from "../stores/useUserStore";
@@ -39,9 +39,7 @@ export default function ChatBot() {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.sender === "bot") {
-      // play notification
       new Audio("/sounds/notify.wav").play().catch(() => {});
-      // mark unread only if chat is closed
       if (!open) setHasUnread(true);
     }
   }, [messages, open]);
@@ -77,8 +75,12 @@ export default function ChatBot() {
     setTyping(true);
 
     try {
-      const { data } = await axios.post("/chatbot", { message: input });
-      // simulate a brief “thinking” pause
+      const { data } = await axios.post(
+        "/chatbot",
+        { message: input }
+        // if you didn’t set withCredentials globally, uncomment this:
+        // { withCredentials: true }
+      );
       await new Promise((r) => setTimeout(r, 300));
       setMessages((m) => [
         ...m,
@@ -95,7 +97,7 @@ export default function ChatBot() {
     setTyping(false);
   };
 
-  // 6) Add to cart (no duplicate toast)
+  // 6) Add to cart
   const handleAddToCart = (product) => {
     addToCart(product);
   };
@@ -109,12 +111,9 @@ export default function ChatBot() {
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-2">
       {open && (
         <div className="w-80 bg-slate-900 text-white rounded-xl shadow-xl overflow-hidden">
-          {/* Header */}
           <div className="bg-slate-800 px-4 py-3 font-semibold border-b border-slate-700">
             Rocket Bay Assistant
           </div>
-
-          {/* Messages */}
           <div className="h-64 overflow-y-auto p-4 space-y-2 text-sm">
             {messages.map((msg, i) => (
               <div key={i} className="space-y-2">
@@ -133,8 +132,6 @@ export default function ChatBot() {
                     {msg.text}
                   </div>
                 </div>
-
-                {/* Product cards, if any */}
                 {msg.products?.length > 0 && (
                   <div className="grid grid-cols-1 gap-2 pl-4">
                     {msg.products.map((p, idx) => (
@@ -175,7 +172,6 @@ export default function ChatBot() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
           <div className="border-t border-slate-700 p-2 bg-slate-800 flex gap-2">
             <input
               className="flex-grow bg-slate-700 px-2 py-1 rounded focus:outline-none"
@@ -193,8 +189,6 @@ export default function ChatBot() {
           </div>
         </div>
       )}
-
-      {/* Toggle button with unread badge */}
       <button
         onClick={toggleChat}
         className="relative bg-slate-800 text-white p-3 rounded-full shadow-md hover:bg-slate-700 transition"

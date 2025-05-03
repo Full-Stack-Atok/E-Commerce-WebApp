@@ -1,6 +1,7 @@
 // backend/controllers/cart.controller.js
 import User from "../models/user.model.js";
 
+// GET /api/cart
 export const getCartProducts = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).populate(
@@ -15,20 +16,19 @@ export const getCartProducts = async (req, res) => {
   }
 };
 
+// POST /api/cart
 export const addToCart = async (req, res) => {
   try {
     const { productId } = req.body;
-    if (!productId) {
+    if (!productId)
       return res.status(400).json({ message: "productId is required" });
-    }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 1) Remove any null or malformed entries
+    // clean up null entries
     user.cartItems = user.cartItems.filter((ci) => ci && ci.product);
 
-    // 2) Find existing
     const existing = user.cartItems.find(
       (ci) => ci.product.toString() === productId
     );
@@ -37,10 +37,8 @@ export const addToCart = async (req, res) => {
     } else {
       user.cartItems.push({ product: productId, quantity: 1 });
     }
-
     await user.save();
 
-    // 3) Return populated cart
     const populated = await user.populate(
       "cartItems.product",
       "name price image"
@@ -48,18 +46,17 @@ export const addToCart = async (req, res) => {
     return res.json(populated.cartItems);
   } catch (err) {
     console.error("addToCart error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error", error: err.message });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-export const removeAllFromCart = async (req, res) => {
+// DELETE /api/cart      (remove a single product)
+export const removeFromCart = async (req, res) => {
   try {
     const { productId } = req.body;
-    if (!productId) {
+    if (!productId)
       return res.status(400).json({ message: "productId is required" });
-    }
+
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -67,24 +64,25 @@ export const removeAllFromCart = async (req, res) => {
       (ci) => ci.product.toString() !== productId
     );
     await user.save();
+
     const populated = await user.populate(
       "cartItems.product",
       "name price image"
     );
-    res.json(populated.cartItems);
+    return res.json(populated.cartItems);
   } catch (err) {
-    console.error("removeAllFromCart error:", err);
+    console.error("removeFromCart error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
+// PUT /api/cart/:id     (update quantity of a product)
 export const updateQuantity = async (req, res) => {
   try {
     const productId = req.params.id;
     const { quantity } = req.body;
-    if (quantity == null) {
+    if (quantity == null)
       return res.status(400).json({ message: "quantity is required" });
-    }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -92,9 +90,7 @@ export const updateQuantity = async (req, res) => {
     const item = user.cartItems.find(
       (ci) => ci.product.toString() === productId
     );
-    if (!item) {
-      return res.status(404).json({ message: "Item not in cart" });
-    }
+    if (!item) return res.status(404).json({ message: "Item not in cart" });
 
     if (quantity <= 0) {
       user.cartItems = user.cartItems.filter(
@@ -103,15 +99,32 @@ export const updateQuantity = async (req, res) => {
     } else {
       item.quantity = quantity;
     }
-
     await user.save();
+
     const populated = await user.populate(
       "cartItems.product",
       "name price image"
     );
-    res.json(populated.cartItems);
+    return res.json(populated.cartItems);
   } catch (err) {
     console.error("updateQuantity error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// NEW: DELETE /api/cart/clear   (remove *all* items)
+export const clearCart = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.cartItems = [];
+    await user.save();
+
+    // return empty array so front-end can repopulate
+    res.json([]);
+  } catch (err) {
+    console.error("clearCart error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };

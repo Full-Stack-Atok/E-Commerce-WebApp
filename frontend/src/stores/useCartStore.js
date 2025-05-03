@@ -17,7 +17,7 @@ export const useCartStore = create((set, get) => ({
   getMyCoupon: async () => {
     try {
       const res = await axios.get("/coupons");
-      set({ coupon: res.data });
+      set({ coupon: res.data, isCouponApplied: false });
     } catch (err) {
       console.error("getMyCoupon error:", err);
       toast.error("Failed to load coupon");
@@ -129,14 +129,17 @@ export const useCartStore = create((set, get) => ({
   },
 
   // === Clear everything (used after successful checkout) ===
-  clearCart: () => {
-    set({
-      cart: [],
-      loading: false,
-      subtotal: 0,
-      total: 0,
-      coupon: null,
-      isCouponApplied: false,
-    });
+  clearCartServer: async () => {
+    set({ loading: true });
+    try {
+      await axios.delete("/cart/clear"); // hits our new endpoint
+      get().clearCart(); // reset client state
+      toast.success("Cart emptied");
+    } catch (err) {
+      console.error("clearCartServer error:", err);
+      toast.error("Failed to clear cart");
+    } finally {
+      set({ loading: false });
+    }
   },
 }));

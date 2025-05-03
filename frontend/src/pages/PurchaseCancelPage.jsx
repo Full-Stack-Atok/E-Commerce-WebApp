@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 const PurchaseCancelPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <motion.dv
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -37,7 +37,7 @@ const PurchaseCancelPage = () => {
             </Link>
           </div>
         </div>
-      </motion.dv>
+      </motion.div>
     </div>
   );
 };
