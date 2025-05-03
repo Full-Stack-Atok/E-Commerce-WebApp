@@ -25,7 +25,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "https://your-frontend-domain.com",
+    origin: process.env.CLIENT_URL || "https://rocket-bay.onrender.com",
     credentials: true,
   })
 );

@@ -6,8 +6,8 @@ import axios from "axios";
 const API = import.meta.env.VITE_API_URL;
 
 const instance = axios.create({
-  baseURL: API, // ← use the deployed backend URL
-  withCredentials: true, // if you need cookies, auth, etc.
+  baseURL: import.meta.env.VITE_API_URL, // ← full domain + `/api`
+  withCredentials: true, // ← include backend cookies
 });
 
 console.log("🚀 Axios baseURL:", instance.defaults.baseURL);
