@@ -19,14 +19,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ── fix __dirname in ES modules ──────────────────────────────────────────────
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// ── 1) Global middleware ────────────────────────────────────────────────────
-// parse JSON bodies, cookies, enable CORS
+// ─── MIDDLEWARE ─────────────────────────────────────────────────────────────
+// Parse JSON bodies + cookies
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
+
+// Enable CORS for your front-end origin
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -34,7 +32,7 @@ app.use(
   })
 );
 
-// ── 2) API routes ────────────────────────────────────────────────────────────
+// ─── API ROUTES ──────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -43,19 +41,28 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// ── 3) Static & SPA fallback (production only) ───────────────────────────────
-if (process.env.NODE_ENV === "production") {
-  const clientDist = path.join(__dirname, "../frontend/dist");
-  // serve static files
-  app.use(express.static(clientDist));
-  // for any GET that's not /api/*, return index.html
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(clientDist, "index.html"));
-  });
-}
+// ─── SERVE REACT APP ─────────────────────────────────────────────────────────
+// ESM __dirname shim
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// ── 4) Launch ───────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  connectDB();
+// Point to your built frontend
+const clientBuildPath = path.resolve(__dirname, "../frontend/dist");
+app.use(express.static(clientBuildPath));
+
+// Always return index.html for any unrecognized route (so React Router works)
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(clientBuildPath, "index.html"));
 });
+
+// ─── START SERVER ────────────────────────────────────────────────────────────
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ Failed to connect to DB:", err);
+    process.exit(1);
+  });

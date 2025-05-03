@@ -7,9 +7,11 @@ import {
 } from "../controllers/cart.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 
+console.log("🛒 [cart.route.js] loaded");
+
 const router = express.Router();
 
-// all cart endpoints require an authenticated user
+// All cart endpoints require an authenticated user
 router.use(protectRoute);
 
 router.get("/", getCartProducts);
