@@ -4,7 +4,9 @@
   "type": "module",
   "main": "backend/server.js",
   "scripts": {
-    "postinstall": "npm install --prefix frontend && npm run build --prefix frontend",
+    "frontend-install": "npm ci --prefix frontend",
+    "frontend-build": "npm run build --prefix frontend",
+    "postinstall": "npm run frontend-install && npm run frontend-build",
     "dev": "npm install && npm run postinstall && nodemon backend/server.js",
     "build": "npm run postinstall",
     "start": "node backend/server.js"
