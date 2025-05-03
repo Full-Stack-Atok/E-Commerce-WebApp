@@ -1,7 +1,7 @@
 // backend/controllers/auth.controller.js
 import jwt from "jsonwebtoken";
 import { promisify } from "util";
-import User from "../models/User.js";
+import User from "../models/user.model.js";
 
 // Helper to sign a JWT
 const signToken = (id, secret, expiresIn) =>
