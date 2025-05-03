@@ -19,12 +19,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ─── MIDDLEWARE ─────────────────────────────────────────────────────────────
-// Parse JSON bodies + cookies
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-
-// Enable CORS for your front-end origin
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -32,7 +28,10 @@ app.use(
   })
 );
 
-// ─── API ROUTES ──────────────────────────────────────────────────────────────
+// Health check
+app.get("/__health", (req, res) => res.send("OK"));
+
+// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -41,25 +40,20 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// ─── SERVE REACT APP ─────────────────────────────────────────────────────────
-// ESM __dirname shim
+// Serve React build
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Point to your built frontend
 const clientBuildPath = path.resolve(__dirname, "../frontend/dist");
 app.use(express.static(clientBuildPath));
+app.get("/*", (req, res) =>
+  res.sendFile(path.join(clientBuildPath, "index.html"))
+);
 
-// Always return index.html for any unrecognized route (so React Router works)
-app.get("/*", (req, res) => {
-  res.sendFile(path.join(clientBuildPath, "index.html"));
-});
-
-// ─── START SERVER ────────────────────────────────────────────────────────────
+// Start server bound to IPv4
 connectDB()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    app.listen(PORT, "127.0.0.1", () => {
+      console.log(`🚀 Server running on http://127.0.0.1:${PORT}`);
     });
   })
   .catch((err) => {
