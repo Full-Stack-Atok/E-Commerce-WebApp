@@ -44,18 +44,6 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// ─── SERVE REACT APP ─────────────────────────────────────────────────────────
-// ESM __dirname shim
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const clientBuildPath = path.resolve(__dirname, "../frontend/dist");
-app.use(express.static(clientBuildPath));
-
-app.get("/*", (_req, res) => {
-  res.sendFile(path.join(clientBuildPath, "index.html"));
-});
-
 // ─── START SERVER ────────────────────────────────────────────────────────────
 connectDB()
   .then(() => {
