@@ -1,133 +1,128 @@
-// backend/src/controllers/auth.controller.js
-import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
-import { redis } from "../lib/redis.js";
 
-// 1️⃣ Generate JWTs
-const generateTokens = (userId) => ({
-  accessToken: jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "15m",
-  }),
-  refreshToken: jwt.sign({ userId }, process.env.REFRESH_TOKEN_SECRET, {
-    expiresIn: "7d",
-  }),
-});
-
-// 2️⃣ Store refresh token in Redis for 7 days
-const storeRefreshToken = (userId, token) =>
-  redis.set(`refresh_token:${userId}`, token, "EX", 7 * 24 * 60 * 60);
-
-// 3️⃣ Cookie settings — host-only on the backend
-const COOKIE_OPTS = {
-  httpOnly: true, // not accessible from JS
-  secure: true, // HTTPS only
-  sameSite: "none", // allow cross-site AJAX
-  path: "/", // bound to rocket-bay-backend.onrender.com
-};
-
-const setTokens = (res, accessToken, refreshToken) => {
-  res
-    .cookie("accessToken", accessToken, {
-      ...COOKIE_OPTS,
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    })
-    .cookie("refreshToken", refreshToken, {
-      ...COOKIE_OPTS,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-};
-
-export const signup = async (req, res) => {
+// GET /api/cart
+export const getCartProducts = async (req, res) => {
   try {
-    const { email, password, name } = req.body;
-    if (await User.exists({ email })) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-    const user = await User.create({ name, email, password });
-
-    const { accessToken, refreshToken } = generateTokens(user._id);
-    await storeRefreshToken(user._id, refreshToken);
-    setTokens(res, accessToken, refreshToken);
-
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    });
+    const user = await User.findById(req.user._id).populate(
+      "cartItems.product",
+      "name price image"
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user.cartItems);
   } catch (err) {
-    console.error("signup error:", err);
-    res.status(500).json({ message: err.message });
+    console.error("getCartProducts error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-export const login = async (req, res) => {
+// POST /api/cart
+export const addToCart = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(400).json({ message: "Invalid credentials" });
+    const { productId } = req.body;
+    if (!productId)
+      return res.status(400).json({ message: "productId is required" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // cleanup null entries
+    user.cartItems = user.cartItems.filter((ci) => ci && ci.product);
+
+    const existing = user.cartItems.find(
+      (ci) => ci.product.toString() === productId
+    );
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      user.cartItems.push({ product: productId, quantity: 1 });
     }
+    await user.save();
 
-    const { accessToken, refreshToken } = generateTokens(user._id);
-    await storeRefreshToken(user._id, refreshToken);
-    setTokens(res, accessToken, refreshToken);
-
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    });
+    const populated = await user.populate(
+      "cartItems.product",
+      "name price image"
+    );
+    res.json(populated.cartItems);
   } catch (err) {
-    console.error("login error:", err);
-    res.status(500).json({ message: err.message });
+    console.error("addToCart error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-export const refreshToken = async (req, res) => {
+// DELETE /api/cart      (remove a single product)
+export const removeFromCart = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
-    if (!token) return res.status(401).json({ message: "No refresh token" });
+    const { productId } = req.body;
+    if (!productId)
+      return res.status(400).json({ message: "productId is required" });
 
-    const { userId } = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-    const stored = await redis.get(`refresh_token:${userId}`);
-    if (stored !== token) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const accessToken = jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
-      expiresIn: "15m",
-    });
-    // Only reset the accessToken cookie
-    res.cookie("accessToken", accessToken, {
-      ...COOKIE_OPTS,
-      maxAge: 15 * 60 * 1000,
-    });
-    res.json({ message: "Access token refreshed" });
+    user.cartItems = user.cartItems.filter(
+      (ci) => ci.product.toString() !== productId
+    );
+    await user.save();
+
+    const populated = await user.populate(
+      "cartItems.product",
+      "name price image"
+    );
+    res.json(populated.cartItems);
   } catch (err) {
-    console.error("refreshToken error:", err);
-    res.status(401).json({ message: err.message });
+    console.error("removeFromCart error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-export const logout = async (req, res) => {
+// PUT /api/cart/:id     (update quantity of a product)
+export const updateQuantity = async (req, res) => {
   try {
-    const token = req.cookies.refreshToken;
-    if (token) {
-      const { userId } = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-      await redis.del(`refresh_token:${userId}`);
+    const productId = req.params.id;
+    const { quantity } = req.body;
+    if (quantity == null)
+      return res.status(400).json({ message: "quantity is required" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const item = user.cartItems.find(
+      (ci) => ci.product.toString() === productId
+    );
+    if (!item) return res.status(404).json({ message: "Item not in cart" });
+
+    if (quantity <= 0) {
+      user.cartItems = user.cartItems.filter(
+        (ci) => ci.product.toString() !== productId
+      );
+    } else {
+      item.quantity = quantity;
     }
-    res.clearCookie("accessToken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/" });
-    res.json({ message: "Logged out successfully" });
+    await user.save();
+
+    const populated = await user.populate(
+      "cartItems.product",
+      "name price image"
+    );
+    res.json(populated.cartItems);
   } catch (err) {
-    console.error("logout error:", err);
-    res.status(500).json({ message: err.message });
+    console.error("updateQuantity error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-export const getProfile = (req, res) => {
-  // protectRoute has already loaded req.user
-  res.json(req.user);
+// DELETE /api/cart/clear   (remove all items)
+export const clearCart = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.cartItems = [];
+    await user.save();
+
+    res.json([]); // return empty array
+  } catch (err) {
+    console.error("clearCart error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
 };
