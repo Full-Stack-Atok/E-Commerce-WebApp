@@ -11,9 +11,11 @@ import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  // 👇 Only grab the pieces you need via selectors
-  const cart = useCartStore((state) => state.cart);
-  const getCartItems = useCartStore((state) => state.getCartItems);
+  // Grab both cart array and getCartItems function in a single hook call
+  const { cart, getCartItems } = useCartStore((state) => ({
+    cart: state.cart,
+    getCartItems: state.getCartItems,
+  }));
 
   useEffect(() => {
     getCartItems();
