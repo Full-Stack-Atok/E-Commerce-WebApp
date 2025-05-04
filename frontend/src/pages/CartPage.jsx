@@ -1,4 +1,4 @@
-// src/pages/CartPage.jsx
+// frontend/src/pages/CartPage.jsx
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "../stores/useCartStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,14 +9,17 @@ import PeopleAlsoBought from "../components/PeopleAlsoBought";
 import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
-const CartPage = () => {
+export default function CartPage() {
   const { cart } = useCartStore();
+
+  // drop any entries where product === null
+  const items = cart.filter((ci) => ci.product);
 
   return (
     <div className="py-8 md:py-16">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         <AnimatePresence mode="wait">
-          {cart.length === 0 ? (
+          {items.length === 0 ? (
             <EmptyCartUI key="empty" />
           ) : (
             <motion.div
@@ -27,17 +30,16 @@ const CartPage = () => {
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.4 }}
             >
-              {/* main column: cart items + recommendations */}
+              {/* main column */}
               <div className="lg:col-span-2 space-y-6">
-                {cart.map((item) => (
-                  <CartItem key={item._id} item={item} />
+                {items.map((item) => (
+                  // use product._id as key
+                  <CartItem key={item.product._id} item={item} />
                 ))}
-
-                {/* only show recommendations if we have items */}
                 <PeopleAlsoBought />
               </div>
 
-              {/* sidebar: order summary + coupon */}
+              {/* sidebar */}
               <aside className="space-y-6 lg:sticky lg:top-24">
                 <OrderSummary />
                 <GiftCouponCard />
@@ -48,9 +50,7 @@ const CartPage = () => {
       </div>
     </div>
   );
-};
-
-export default CartPage;
+}
 
 const EmptyCartUI = () => (
   <motion.div
