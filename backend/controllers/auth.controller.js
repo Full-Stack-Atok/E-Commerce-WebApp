@@ -1,3 +1,4 @@
+// backend/src/controllers/auth.controller.js
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { redis } from "../lib/redis.js";
@@ -16,24 +17,23 @@ const generateTokens = (userId) => ({
 const storeRefreshToken = (userId, token) =>
   redis.set(`refresh_token:${userId}`, token, "EX", 7 * 24 * 60 * 60);
 
-// 3️⃣ Cookie settings for cross-site on Render
+// 3️⃣ Cookie settings — host-only on the backend
 const COOKIE_OPTS = {
   httpOnly: true, // not accessible from JS
   secure: true, // HTTPS only
-  sameSite: "none", // allow cross-site
-  domain: ".onrender.com", // share across rocket-bay.* and backend.*
-  path: "/",
+  sameSite: "none", // allow cross-site AJAX
+  path: "/", // bound to rocket-bay-backend.onrender.com
 };
 
 const setTokens = (res, accessToken, refreshToken) => {
   res
     .cookie("accessToken", accessToken, {
       ...COOKIE_OPTS,
-      maxAge: 15 * 60 * 1000, // 15m
+      maxAge: 15 * 60 * 1000, // 15 minutes
     })
     .cookie("refreshToken", refreshToken, {
       ...COOKIE_OPTS,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 };
 
@@ -49,7 +49,12 @@ export const signup = async (req, res) => {
     await storeRefreshToken(user._id, refreshToken);
     setTokens(res, accessToken, refreshToken);
 
-    res.status(201).json({ _id: user._1, name, email, role: user.role });
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
   } catch (err) {
     console.error("signup error:", err);
     res.status(500).json({ message: err.message });
@@ -68,7 +73,12 @@ export const login = async (req, res) => {
     await storeRefreshToken(user._id, refreshToken);
     setTokens(res, accessToken, refreshToken);
 
-    res.json({ _id: user._id, name: user.name, email, role: user.role });
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
   } catch (err) {
     console.error("login error:", err);
     res.status(500).json({ message: err.message });
@@ -89,6 +99,7 @@ export const refreshToken = async (req, res) => {
     const accessToken = jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "15m",
     });
+    // Only reset the accessToken cookie
     res.cookie("accessToken", accessToken, {
       ...COOKIE_OPTS,
       maxAge: 15 * 60 * 1000,
@@ -117,6 +128,6 @@ export const logout = async (req, res) => {
 };
 
 export const getProfile = (req, res) => {
-  // protectRoute already populated req.user
+  // protectRoute has already loaded req.user
   res.json(req.user);
 };
