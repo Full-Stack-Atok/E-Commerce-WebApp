@@ -1,4 +1,4 @@
-// backend/src/app.js
+// backend/server.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
 // Only allow your Vite dev server
 app.use(
   cors({
-    origin: process.env.CLIENT_URL, // http://localhost:5173
+    origin: process.env.CLIENT_URL, // 
     credentials: true, // allow Set-Cookie
   })
 );

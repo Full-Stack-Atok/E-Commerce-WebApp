@@ -7,11 +7,12 @@ import { redis } from "../lib/redis.js";
 const signToken = (userId, secret, expiresIn) =>
   jwt.sign({ userId }, secret, { expiresIn });
 
-// Cookie options for cross-site auth
+// Cookie options for cross-site auth (shared across *.onrender.com)
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
+  secure: process.env.NODE_ENV === "production", // true on HTTPS
+  sameSite: "none", // allow cross-site
+  domain: ".onrender.com", // share on all onrender.com subdomains
   path: "/",
 };
 
@@ -44,11 +45,11 @@ export const signup = async (req, res) => {
     res
       .cookie("accessToken", accessToken, {
         ...COOKIE_OPTS,
-        maxAge: 15 * 60 * 1000,
+        maxAge: 15 * 60 * 1000, // 15 minutes
       })
       .cookie("refreshToken", refreshToken, {
         ...COOKIE_OPTS,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       })
       .status(201)
       .json({
@@ -146,8 +147,8 @@ export const logout = async (req, res) => {
       await redis.del(`refresh_token:${decoded.userId}`);
     }
     res
-      .clearCookie("accessToken", { path: "/" })
-      .clearCookie("refreshToken", { path: "/" })
+      .clearCookie("accessToken", { domain: ".onrender.com", path: "/" })
+      .clearCookie("refreshToken", { domain: ".onrender.com", path: "/" })
       .json({ message: "Logged out successfully" });
   } catch (err) {
     console.error("logout error:", err);
