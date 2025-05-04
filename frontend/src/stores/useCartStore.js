@@ -3,14 +3,14 @@ import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
 
 export const useCartStore = create((set, get) => ({
-  // State
+  // ── state ────────────────────────────────────────────────────
   cart: [], // array of { product: {...}, quantity }
   subtotal: 0,
   total: 0,
 
-  console.log("Store keys:", Object.keys(useCartStore.getState()));
+  // ── actions ──────────────────────────────────────────────────
 
-  // 1) Load cart
+  // 1) load the cart from the server
   getCartItems: async () => {
     try {
       const { data } = await axios.get("/cart");
@@ -22,7 +22,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 2) Add one unit
+  // 2) add one unit of a product
   addToCart: async (product) => {
     try {
       const { data } = await axios.post("/cart", { productId: product._id });
@@ -34,12 +34,10 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 3) Remove entire line
+  // 3) remove an entire product line
   removeFromCart: async (productId) => {
     try {
-      const { data } = await axios.delete("/cart", {
-        data: { productId },
-      });
+      const { data } = await axios.delete("/cart", { data: { productId } });
       set({ cart: data });
       get().calculateTotals();
       toast.success("Removed from cart");
@@ -48,7 +46,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 4) Change quantity
+  // 4) set a product’s quantity (or remove if zero)
   updateQuantity: async (productId, quantity) => {
     try {
       const { data } = await axios.put(`/cart/${productId}`, { quantity });
@@ -60,7 +58,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 5) Clear all
+  // 5) clear the entire cart
   clearCart: async () => {
     try {
       const { data } = await axios.delete("/cart/clear");
@@ -71,7 +69,9 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Compute totals (filtering out any null products)
+  // ── helpers ──────────────────────────────────────────────────
+
+  // compute subtotal & total
   calculateTotals: () => {
     const cart = get().cart.filter((ci) => ci.product);
     const subtotal = cart.reduce((sum, ci) => {

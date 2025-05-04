@@ -1,4 +1,3 @@
-// frontend/src/pages/CartPage.jsx
 import { useEffect } from "react";
 import { ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,14 +10,17 @@ import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  // **Only** these two hook calls:
-  const cart = useCartStore((state) => state.cart);
-  const getCartItems = useCartStore((state) => state.getCartItems);
+  // ✨ grab only these two values via a single selector call
+  const { cart, getCartItems } = useCartStore((state) => ({
+    cart: state.cart,
+    getCartItems: state.getCartItems,
+  }));
 
   useEffect(() => {
     getCartItems();
   }, [getCartItems]);
 
+  // filter out any null products
   const items = Array.isArray(cart) ? cart.filter((ci) => ci.product) : [];
 
   return (
@@ -36,12 +38,15 @@ export default function CartPage() {
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.4 }}
             >
+              {/* Left: cart items + recommendations */}
               <div className="lg:col-span-2 space-y-6">
                 {items.map((item) => (
                   <CartItem key={item.product._id} item={item} />
                 ))}
                 <PeopleAlsoBought />
               </div>
+
+              {/* Right: order summary + coupon */}
               <aside className="space-y-6 lg:sticky lg:top-24">
                 <OrderSummary />
                 <GiftCouponCard />
