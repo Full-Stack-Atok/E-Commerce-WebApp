@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
@@ -19,8 +20,12 @@ import { useUserStore } from "./stores/useUserStore";
 import { useCartStore } from "./stores/useCartStore";
 
 export default function App() {
-  const { user, checkAuth, checkingAuth } = useUserStore();
-  const { getCartItems } = useCartStore();
+  const user = useUserStore((state) => state.user);
+  const checkAuth = useUserStore((state) => state.checkAuth);
+  const checkingAuth = useUserStore((state) => state.checkingAuth);
+
+  // ← selector here too
+  const getCartItems = useCartStore((state) => state.getCartItems);
 
   // On mount, verify auth
   useEffect(() => {
@@ -29,9 +34,7 @@ export default function App() {
 
   // Once we know who the user is, load their cart
   useEffect(() => {
-    if (user) {
-      getCartItems();
-    }
+    if (user) getCartItems();
   }, [user, getCartItems]);
 
   // While verifying auth, show spinner
@@ -39,14 +42,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
-      {/* Background gradient layers */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.6)_0%,_rgba(190,235,255,0.4)_45%,_rgba(180,220,255,0.2)_100%)]" />
         </div>
       </div>
 
-      {/* Main content */}
       <div className="relative z-50 pt-24 px-4 mx-auto max-w-7xl w-full">
         <Navbar />
 
@@ -82,10 +83,7 @@ export default function App() {
         </Routes>
       </div>
 
-      {/* Global toaster */}
       <Toaster />
-
-      {/* Chatbot fixed at bottom-right */}
       <ChatBot />
     </div>
   );
