@@ -10,7 +10,7 @@ export const useCartStore = create((set, get) => ({
   total: 0,
   isCouponApplied: false,
 
-  // Fetch the current cart from server
+  // Fetch the current cart
   getCartItems: async () => {
     try {
       const res = await axios.get("/cart");
@@ -26,7 +26,6 @@ export const useCartStore = create((set, get) => ({
   addToCart: async (product) => {
     try {
       const res = await axios.post("/cart", { productId: product._id });
-      // res.data is the full updated cart array
       set({ cart: res.data });
       get().calculateTotals();
       toast.success("Product added to cart");
@@ -105,15 +104,22 @@ export const useCartStore = create((set, get) => ({
     toast.success("Coupon removed");
   },
 
-  // Compute subtotal and total (after coupon)
+  // Compute subtotal and total (after coupon),
+  // filtering out any cart entries where product is null
   calculateTotals: () => {
     const { cart, coupon } = get();
-    const subtotal = cart.reduce((sum, ci) => {
+
+    // 1. Filter out items missing their product (to avoid null.price)
+    const validItems = cart.filter((ci) => ci.product);
+
+    // 2. Sum price * quantity
+    const subtotal = validItems.reduce((sum, ci) => {
       const price = Number(ci.product.price) || 0;
       const qty = Number(ci.quantity) || 0;
       return sum + price * qty;
     }, 0);
 
+    // 3. Apply coupon discount if any
     let total = subtotal;
     if (coupon?.discountPercentage > 0) {
       total = subtotal * (1 - coupon.discountPercentage / 100);
