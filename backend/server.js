@@ -1,4 +1,3 @@
-// backend/server.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -18,25 +17,22 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-// Only allow your Vite dev server
 app.use(
   cors({
-    origin: process.env.CLIENT_URL, // 
-    credentials: true, // allow Set-Cookie
+    origin: "https://rocket-bay.onrender.com",
+    credentials: true,
+  })
+);
+app.options(
+  "*",
+  cors({
+    origin: "https://rocket-bay.onrender.com",
+    credentials: true,
   })
 );
 
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
-
-// Optional: explicitly handle preflight
-app.options(
-  "*",
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: true,
-  })
-);
 
 // Health check
 app.get("/__health", (_req, res) => res.send("OK"));
@@ -54,7 +50,7 @@ app.use("/api/chatbot", chatbotRoute);
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`🚀 Server listening on http://localhost:${PORT}`);
+      console.log(`🚀 Server listening on port ${PORT}`);
     });
   })
   .catch((err) => {
