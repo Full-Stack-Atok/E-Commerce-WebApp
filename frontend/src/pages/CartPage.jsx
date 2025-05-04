@@ -11,7 +11,7 @@ import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  // ← correctly grab cart _and_ getCartItems via selectors
+  // 👇 Only grab the pieces you need via selectors
   const cart = useCartStore((state) => state.cart);
   const getCartItems = useCartStore((state) => state.getCartItems);
 
