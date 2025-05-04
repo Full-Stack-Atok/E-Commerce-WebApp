@@ -1,4 +1,3 @@
-// frontend/src/App.jsx
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
@@ -24,20 +23,17 @@ export default function App() {
   const checkAuth = useUserStore((state) => state.checkAuth);
   const checkingAuth = useUserStore((state) => state.checkingAuth);
 
-  // ← selector here too
+  // ← selector only
   const getCartItems = useCartStore((state) => state.getCartItems);
 
-  // On mount, verify auth
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
-  // Once we know who the user is, load their cart
   useEffect(() => {
     if (user) getCartItems();
   }, [user, getCartItems]);
 
-  // While verifying auth, show spinner
   if (checkingAuth) return <LoadingSpinner />;
 
   return (
@@ -47,10 +43,8 @@ export default function App() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.6)_0%,_rgba(190,235,255,0.4)_45%,_rgba(180,220,255,0.2)_100%)]" />
         </div>
       </div>
-
       <div className="relative z-50 pt-24 px-4 mx-auto max-w-7xl w-full">
         <Navbar />
-
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route
@@ -82,7 +76,6 @@ export default function App() {
           />
         </Routes>
       </div>
-
       <Toaster />
       <ChatBot />
     </div>

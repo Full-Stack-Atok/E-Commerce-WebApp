@@ -10,7 +10,7 @@ export const useCartStore = create((set, get) => ({
 
   // ── actions ──────────────────────────────────────────────────
 
-  // 1) load the cart from the server
+  // Load cart
   getCartItems: async () => {
     try {
       const { data } = await axios.get("/cart");
@@ -22,7 +22,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 2) add one unit of a product
+  // Add one unit
   addToCart: async (product) => {
     try {
       const { data } = await axios.post("/cart", { productId: product._id });
@@ -34,7 +34,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 3) remove an entire product line
+  // Remove line
   removeFromCart: async (productId) => {
     try {
       const { data } = await axios.delete("/cart", { data: { productId } });
@@ -46,7 +46,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 4) set a product’s quantity (or remove if zero)
+  // Update quantity
   updateQuantity: async (productId, quantity) => {
     try {
       const { data } = await axios.put(`/cart/${productId}`, { quantity });
@@ -58,7 +58,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // 5) clear the entire cart
+  // Clear everything
   clearCart: async () => {
     try {
       const { data } = await axios.delete("/cart/clear");
@@ -71,13 +71,12 @@ export const useCartStore = create((set, get) => ({
 
   // ── helpers ──────────────────────────────────────────────────
 
-  // compute subtotal & total
   calculateTotals: () => {
     const cart = get().cart.filter((ci) => ci.product);
     const subtotal = cart.reduce((sum, ci) => {
-      const price = Number(ci.product.price) || 0;
-      const qty = Number(ci.quantity) || 0;
-      return sum + price * qty;
+      const p = Number(ci.product.price) || 0;
+      const q = Number(ci.quantity) || 0;
+      return sum + p * q;
     }, 0);
     set({ subtotal, total: subtotal });
   },

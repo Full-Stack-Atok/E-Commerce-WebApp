@@ -1,14 +1,14 @@
-// frontend/src/components/Navbar.jsx
 import { ShoppingCart, UserPlus, LogIn, LogOut, Lock } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 
 const Navbar = () => {
-  const { user, logout } = useUserStore();
+  const user = useUserStore((state) => state.user);
+  const logout = useUserStore((state) => state.logout);
   const isAdmin = user?.role === "admin";
 
-  // ← Select only the cart array here
+  // ← selector for cart array
   const cart = useCartStore((state) => state.cart);
 
   const authBtn = `
@@ -28,7 +28,6 @@ const Navbar = () => {
         <Link to="/" className="text-2xl font-bold text-slate-800">
           Rocket Bay
         </Link>
-
         <nav className="flex items-center gap-4">
           <NavLink
             to="/"
@@ -38,7 +37,6 @@ const Navbar = () => {
           >
             Home
           </NavLink>
-
           {user && (
             <NavLink
               to="/cart"
@@ -57,27 +55,25 @@ const Navbar = () => {
               )}
             </NavLink>
           )}
-
           {isAdmin && (
             <Link to="/secret-dashboard" className={authBtn}>
               <Lock size={18} />
               <span className="hidden sm:inline ml-1">Dashboard</span>
             </Link>
           )}
-
           {user ? (
             <button onClick={logout} className={authBtn}>
-              <LogOut size={18} />
+              <LogOut size={18} />{" "}
               <span className="hidden sm:inline ml-1">Logout</span>
             </button>
           ) : (
             <>
               <Link to="/signup" className={authBtn}>
-                <UserPlus size={18} />
+                <UserPlus size={18} />{" "}
                 <span className="hidden sm:inline ml-1">Sign Up</span>
               </Link>
               <Link to="/login" className={authBtn}>
-                <LogIn size={18} />
+                <LogIn size={18} />{" "}
                 <span className="hidden sm:inline ml-1">Login</span>
               </Link>
             </>
