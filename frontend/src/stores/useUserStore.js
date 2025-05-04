@@ -57,7 +57,7 @@ export const useUserStore = create((set, get) => ({
 
   refreshToken: async () => {
     try {
-      await axios.post("/auth/refresh-token");
+      await axios.get("/auth/refresh-token");
     } catch (err) {
       set({ user: null });
       throw err;
