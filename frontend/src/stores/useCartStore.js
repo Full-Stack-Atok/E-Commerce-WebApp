@@ -8,6 +8,8 @@ export const useCartStore = create((set, get) => ({
   subtotal: 0,
   total: 0,
 
+  console.log("Store keys:", Object.keys(useCartStore.getState()));
+
   // 1) Load cart
   getCartItems: async () => {
     try {

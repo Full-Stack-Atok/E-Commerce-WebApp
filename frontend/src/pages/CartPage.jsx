@@ -1,6 +1,6 @@
 // frontend/src/pages/CartPage.jsx
-import { ShoppingCart } from "lucide-react";
 import { useEffect } from "react";
+import { ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 
@@ -11,18 +11,15 @@ import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  // Grab both cart array and getCartItems function in a single hook call
-  const { cart, getCartItems } = useCartStore((state) => ({
-    cart: state.cart,
-    getCartItems: state.getCartItems,
-  }));
+  // **Only** these two hook calls:
+  const cart = useCartStore((state) => state.cart);
+  const getCartItems = useCartStore((state) => state.getCartItems);
 
   useEffect(() => {
     getCartItems();
   }, [getCartItems]);
 
-  // Filter out any entries with a null product
-  const items = cart.filter((ci) => ci.product);
+  const items = Array.isArray(cart) ? cart.filter((ci) => ci.product) : [];
 
   return (
     <div className="py-8 md:py-16">
@@ -39,15 +36,12 @@ export default function CartPage() {
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Left: items */}
               <div className="lg:col-span-2 space-y-6">
                 {items.map((item) => (
                   <CartItem key={item.product._id} item={item} />
                 ))}
                 <PeopleAlsoBought />
               </div>
-
-              {/* Right: summary + coupon */}
               <aside className="space-y-6 lg:sticky lg:top-24">
                 <OrderSummary />
                 <GiftCouponCard />
