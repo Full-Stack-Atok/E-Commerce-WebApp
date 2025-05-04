@@ -10,7 +10,7 @@ export const useCartStore = create((set, get) => ({
   total: 0,
   isCouponApplied: false,
 
-  // Load cart from server
+  // Fetch the current cart from server
   getCartItems: async () => {
     try {
       const res = await axios.get("/cart");
@@ -22,31 +22,31 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Add a product
+  // Add a product to the cart
   addToCart: async (product) => {
     try {
       const res = await axios.post("/cart", { productId: product._id });
       set({ cart: res.data });
       get().calculateTotals();
-      toast.success("Added to cart");
+      toast.success("Product added to cart");
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add to cart");
     }
   },
 
-  // Remove one product completely
+  // Remove a single product
   removeFromCart: async (productId) => {
     try {
       const res = await axios.delete("/cart", { data: { productId } });
       set({ cart: res.data });
       get().calculateTotals();
-      toast.success("Removed from cart");
+      toast.success("Product removed from cart");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to remove item");
+      toast.error(err.response?.data?.message || "Failed to remove from cart");
     }
   },
 
-  // Update quantity
+  // Update quantity of a product
   updateQuantity: async (productId, quantity) => {
     try {
       const res = await axios.put(`/cart/${productId}`, { quantity });
@@ -58,12 +58,12 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Clear entire cart
+  // Clear the entire cart
   clearCart: async () => {
     try {
       const res = await axios.delete("/cart/clear");
       set({
-        cart: res.data,
+        cart: res.data, // should be []
         coupon: null,
         subtotal: 0,
         total: 0,
@@ -75,13 +75,40 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Coupon actions omitted for brevity...
+  // Fetch available coupon
+  getMyCoupon: async () => {
+    try {
+      const res = await axios.get("/coupons");
+      set({ coupon: res.data });
+    } catch (err) {
+      console.error("Error fetching coupon:", err);
+    }
+  },
 
-  // Totals calculation with null‐product filtering
+  // Apply a discount coupon
+  applyCoupon: async (code) => {
+    try {
+      const res = await axios.post("/coupons/validate", { code });
+      set({ coupon: res.data, isCouponApplied: true });
+      get().calculateTotals();
+      toast.success("Coupon applied");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to apply coupon");
+    }
+  },
+
+  // Remove a coupon
+  removeCoupon: () => {
+    set({ coupon: null, isCouponApplied: false });
+    get().calculateTotals();
+    toast.success("Coupon removed");
+  },
+
+  // Compute subtotal & total, filtering out any null products
   calculateTotals: () => {
     const { cart, coupon } = get();
 
-    // Filter out any items whose product failed to populate
+    // remove any items whose product didn't populate
     const valid = cart.filter((ci) => ci.product);
 
     const subtotal = valid.reduce((sum, ci) => {
