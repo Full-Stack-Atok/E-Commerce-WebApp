@@ -4,7 +4,6 @@ import {
   addToCart,
   clearCart,
   updateQuantity,
-  clearCart,
 } from "../controllers/cart.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 
