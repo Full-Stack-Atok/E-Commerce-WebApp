@@ -8,7 +8,7 @@ const signToken = (userId, secret, expiresIn) =>
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", // must be HTTPS
+  secure: true, // must be HTTPS
   sameSite: "none", // allow cross-site
   domain: ".onrender.com", // share across rocket-bay.* and backend.*
   path: "/",
