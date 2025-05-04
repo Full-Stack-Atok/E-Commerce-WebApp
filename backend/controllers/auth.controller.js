@@ -3,16 +3,14 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { redis } from "../lib/redis.js";
 
-// Helper to sign with { userId }
 const signToken = (userId, secret, expiresIn) =>
   jwt.sign({ userId }, secret, { expiresIn });
 
-// Cookie options for cross-site auth (shared across *.onrender.com)
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", // true on HTTPS
+  secure: process.env.NODE_ENV === "production", // must be HTTPS
   sameSite: "none", // allow cross-site
-  domain: ".onrender.com", // share on all onrender.com subdomains
+  domain: ".onrender.com", // share across rocket-bay.* and backend.*
   path: "/",
 };
 
@@ -34,7 +32,6 @@ export const signup = async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET,
       "7d"
     );
-
     await redis.set(
       `refresh_token:${user._id}`,
       refreshToken,
@@ -45,11 +42,11 @@ export const signup = async (req, res) => {
     res
       .cookie("accessToken", accessToken, {
         ...COOKIE_OPTS,
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 15 * 60 * 1000,
       })
       .cookie("refreshToken", refreshToken, {
         ...COOKIE_OPTS,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       })
       .status(201)
       .json({
@@ -82,7 +79,6 @@ export const login = async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET,
       "7d"
     );
-
     await redis.set(
       `refresh_token:${user._id}`,
       refreshToken,
@@ -157,6 +153,5 @@ export const logout = async (req, res) => {
 };
 
 export const getProfile = async (req, res) => {
-  // protectRoute middleware has loaded req.user
   res.json(req.user);
 };

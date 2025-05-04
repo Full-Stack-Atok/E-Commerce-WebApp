@@ -1,3 +1,4 @@
+// backend/src/middleware/auth.middleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
@@ -5,9 +6,9 @@ export const protectRoute = async (req, res, next) => {
   try {
     const token = req.cookies.accessToken;
     if (!token) {
-      return res
-        .status(401)
-        .json({ message: "Unauthorized - No access token provided" });
+      return res.status(401).json({
+        message: "Unauthorized - No access token provided",
+      });
     }
 
     let decoded;
@@ -24,24 +25,14 @@ export const protectRoute = async (req, res, next) => {
         .json({ message: "Unauthorized - Invalid access token" });
     }
 
-    // Look up the user by decoded.userId
     const user = await User.findById(decoded.userId).select("-password");
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
-
     req.user = user;
     next();
   } catch (err) {
     console.error("protectRoute error:", err);
     res.status(500).json({ message: "Server error" });
-  }
-};
-
-export const adminRoute = (req, res, next) => {
-  if (req.user.role === "admin") {
-    next();
-  } else {
-    res.status(403).json({ message: "Access denied - Admin only" });
   }
 };
