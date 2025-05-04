@@ -10,15 +10,22 @@ import { protectRoute } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// All cart routes require authentication
+// All cart routes require an authenticated user
 router.use(protectRoute);
 
+// Fetch the current cart
 router.get("/", getCartProducts);
+
+// Add one item to the cart
 router.post("/", addToCart);
+
+// Remove one item
 router.delete("/", removeFromCart);
+
+// Update quantity
 router.put("/:id", updateQuantity);
 
-// New endpoint to clear the entire cart
+// Clear everything
 router.delete("/clear", clearCart);
 
 export default router;
