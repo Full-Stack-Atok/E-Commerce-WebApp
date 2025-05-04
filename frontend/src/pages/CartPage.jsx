@@ -1,18 +1,23 @@
 // frontend/src/pages/CartPage.jsx
 import { ShoppingCart } from "lucide-react";
-import { useCartStore } from "../stores/useCartStore";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 
+import { useCartStore } from "../stores/useCartStore";
 import CartItem from "../components/CartItem";
 import PeopleAlsoBought from "../components/PeopleAlsoBought";
 import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  const { cart } = useCartStore();
+  const { cart, getCartItems } = useCartStore();
 
-  // drop any entries where product === null
+  useEffect(() => {
+    getCartItems();
+  }, [getCartItems]);
+
+  // Filter out any entries with a null product
   const items = cart.filter((ci) => ci.product);
 
   return (
@@ -30,16 +35,15 @@ export default function CartPage() {
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.4 }}
             >
-              {/* main column */}
+              {/* Left: items */}
               <div className="lg:col-span-2 space-y-6">
                 {items.map((item) => (
-                  // use product._id as key
                   <CartItem key={item.product._id} item={item} />
                 ))}
                 <PeopleAlsoBought />
               </div>
 
-              {/* sidebar */}
+              {/* Right: summary + coupon */}
               <aside className="space-y-6 lg:sticky lg:top-24">
                 <OrderSummary />
                 <GiftCouponCard />
