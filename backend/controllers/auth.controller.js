@@ -1,3 +1,4 @@
+// backend/src/controllers/auth.controller.js
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { redis } from "../lib/redis.js";
@@ -22,7 +23,6 @@ export const signup = async (req, res) => {
     }
     const user = await User.create({ name, email, password });
 
-    // Generate tokens
     const accessToken = signToken(
       user._id,
       process.env.ACCESS_TOKEN_SECRET,
@@ -34,7 +34,6 @@ export const signup = async (req, res) => {
       "7d"
     );
 
-    // Store refresh token in Redis
     await redis.set(
       `refresh_token:${user._id}`,
       refreshToken,
@@ -42,16 +41,15 @@ export const signup = async (req, res) => {
       7 * 24 * 60 * 60
     );
 
-    // Set cookies
     res
       .cookie("accessToken", accessToken, {
         ...COOKIE_OPTS,
         maxAge: 15 * 60 * 1000,
-      }) // 15m
+      })
       .cookie("refreshToken", refreshToken, {
         ...COOKIE_OPTS,
         maxAge: 7 * 24 * 60 * 60 * 1000,
-      }) // 7d
+      })
       .status(201)
       .json({
         _id: user._id,
@@ -118,8 +116,8 @@ export const refreshToken = async (req, res) => {
     if (!token) return res.status(401).json({ message: "No refresh token" });
 
     const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-    const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
-    if (storedToken !== token) {
+    const stored = await redis.get(`refresh_token:${decoded.userId}`);
+    if (stored !== token) {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
 

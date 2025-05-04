@@ -1,3 +1,4 @@
+// backend/src/app.js
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -10,27 +11,37 @@ import couponRoutes from "./routes/coupon.route.js";
 import paymentRoutes from "./routes/payment.route.js";
 import analyticsRoutes from "./routes/analytics.route.js";
 import chatbotRoute from "./routes/chatbot.route.js";
-
 import { connectDB } from "./lib/db.js";
 
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
-// ─── MIDDLEWARE ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: "10mb" }));
-app.use(cookieParser());
+// ─── CORS ────────────────────────────────────────────────────────────────────
+// Only allow your Vite dev server
 app.use(
   cors({
-    origin: process.env.CLIENT_URL, // e.g. https://rocket-bay.onrender.com
-    credentials: true, // allow cookies
+    origin: process.env.CLIENT_URL, // http://localhost:5173
+    credentials: true, // allow Set-Cookie
+  })
+);
+
+app.use(express.json({ limit: "10mb" }));
+app.use(cookieParser());
+
+// Optional: explicitly handle preflight
+app.options(
+  "*",
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
   })
 );
 
 // Health check
 app.get("/__health", (_req, res) => res.send("OK"));
 
-// ─── API ROUTES ──────────────────────────────────────────────────────────────
+// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -39,15 +50,11 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/chatbot", chatbotRoute);
 
-// ─── START SERVER ────────────────────────────────────────────────────────────
+// Start server
 connectDB()
   .then(() => {
-    if (!PORT) {
-      console.error("❌ No PORT defined, exiting.");
-      process.exit(1);
-    }
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Listening on http://0.0.0.0:${PORT}`);
+    app.listen(PORT, () => {
+      console.log(`🚀 Server listening on http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
