@@ -39,7 +39,7 @@ export const addToCart = async (req, res) => {
   }
 };
 
-export const removeAllFromCart = async (req, res) => {
+export const clearCart = async (req, res) => {
   try {
     const { productId } = req.body;
     const user = req.user;
