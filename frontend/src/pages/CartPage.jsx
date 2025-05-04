@@ -5,14 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 
 import { useCartStore } from "../stores/useCartStore";
-console.log("cart store:", useCartStore.getState());
 import CartItem from "../components/CartItem";
 import PeopleAlsoBought from "../components/PeopleAlsoBought";
 import OrderSummary from "../components/OrderSummary";
 import GiftCouponCard from "../components/GiftCouponCard";
 
 export default function CartPage() {
-  const { cart, getCartItems } = useCartStore();
+  // ← correctly grab cart _and_ getCartItems via selectors
+  const cart = useCartStore((state) => state.cart);
+  const getCartItems = useCartStore((state) => state.getCartItems);
 
   useEffect(() => {
     getCartItems();

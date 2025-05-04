@@ -1,14 +1,14 @@
-// frontend/src/stores/useCartStore.js
 import { create } from "zustand";
 import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
 
 export const useCartStore = create((set, get) => ({
-  cart: [],
+  // State
+  cart: [], // array of { product: {...}, quantity }
   subtotal: 0,
   total: 0,
 
-  // Load cart items
+  // 1) Load cart
   getCartItems: async () => {
     try {
       const { data } = await axios.get("/cart");
@@ -20,7 +20,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Add one item
+  // 2) Add one unit
   addToCart: async (product) => {
     try {
       const { data } = await axios.post("/cart", { productId: product._id });
@@ -32,7 +32,21 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Update quantity
+  // 3) Remove entire line
+  removeFromCart: async (productId) => {
+    try {
+      const { data } = await axios.delete("/cart", {
+        data: { productId },
+      });
+      set({ cart: data });
+      get().calculateTotals();
+      toast.success("Removed from cart");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to remove item");
+    }
+  },
+
+  // 4) Change quantity
   updateQuantity: async (productId, quantity) => {
     try {
       const { data } = await axios.put(`/cart/${productId}`, { quantity });
@@ -44,19 +58,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Remove one item
-  removeFromCart: async (productId) => {
-    try {
-      const { data } = await axios.delete("/cart", { data: { productId } });
-      set({ cart: data });
-      get().calculateTotals();
-      toast.success("Removed from cart");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to remove item");
-    }
-  },
-
-  // Clear all items
+  // 5) Clear all
   clearCart: async () => {
     try {
       const { data } = await axios.delete("/cart/clear");
@@ -67,17 +69,14 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Compute totals safely
+  // Compute totals (filtering out any null products)
   calculateTotals: () => {
-    const { cart } = get();
-    // filter out any entries missing product
-    const valid = cart.filter((ci) => ci.product);
-    const subtotal = valid.reduce((sum, ci) => {
+    const cart = get().cart.filter((ci) => ci.product);
+    const subtotal = cart.reduce((sum, ci) => {
       const price = Number(ci.product.price) || 0;
       const qty = Number(ci.quantity) || 0;
       return sum + price * qty;
     }, 0);
-
     set({ subtotal, total: subtotal });
   },
 }));
