@@ -1,24 +1,32 @@
-// backend/controllers/chatbot.controller.js
 import Product from "../models/product.model.js";
 import { parseMessage } from "../nlp/bot-nlp.js";
 
 export const chatBot = async (req, res) => {
   try {
-    const { message } = req.body;
-    const text = (message || "").trim().toLowerCase();
+    const text = (req.body.message || "").trim();
     if (!text) {
       return res.json({ reply: "Please type something for me to respond to." });
     }
 
-    // 1) Run the NLP and inject the user’s name for greetings
+    // 1) Run NLP, inject username for greeting
     const { intent, score, entities, answer } = await parseMessage(
       text,
       req.user?.name || ""
     );
 
-    // 2) If we’ve got a high-confidence intent, handle it
-    if (score > 0.7 && intent !== "None") {
-      // a) List products
+    // 2) **Always** handle greeting first
+    if (intent === "greeting" && answer) {
+      return res.json({ reply: answer });
+    }
+
+    // 3) Other intents if reasonably confident
+    if (score > 0.6 && intent !== "None") {
+      if (intent === "hours") {
+        return res.json({ reply: answer });
+      }
+      if (intent === "location") {
+        return res.json({ reply: answer });
+      }
       if (intent === "products.list") {
         const prods = await Product.find({}).limit(5).lean();
         return res.json({
@@ -32,8 +40,6 @@ export const chatBot = async (req, res) => {
           })),
         });
       }
-
-      // b) Filter by category
       if (intent === "products.filter" && entities.length) {
         const cat = entities[0].option || entities[0].sourceText;
         const matches = await Product.find({
@@ -54,14 +60,9 @@ export const chatBot = async (req, res) => {
           });
         }
       }
-
-      // c) Any other static intent (greeting, hours, location)
-      if (answer) {
-        return res.json({ reply: answer });
-      }
     }
 
-    // 3) Fallback: single‐product lookup by name
+    // 4) Fallback: lookup by product name
     const found = await Product.findOne({
       name: new RegExp(text, "i"),
     }).lean();
@@ -71,7 +72,7 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 4) Default fallback
+    // 5) Ultimate fallback
     return res.json({
       reply:
         "Sorry, I didn’t understand that. Try asking about products, hours, or location.",
