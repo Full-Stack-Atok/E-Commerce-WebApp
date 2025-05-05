@@ -1,4 +1,3 @@
-// src/components/OrderSummary.jsx
 import { motion } from "framer-motion";
 import { useCartStore } from "../stores/useCartStore";
 import { Link } from "react-router-dom";
@@ -13,11 +12,18 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
 });
 
 const OrderSummary = () => {
-  const { cart, coupon, isCouponApplied, total, calculateTotals } =
-    useCartStore();
+  const cart = useCartStore((state) => state.cart);
+  const coupon = useCartStore((state) => state.coupon);
+  const isCouponApplied = useCartStore((state) => state.isCouponApplied);
+  const total = useCartStore((state) => state.total);
+  const calculateTotals = useCartStore((state) => state.calculateTotals);
 
   // Recalculate whenever cart or coupon changes
-  useEffect(calculateTotals, [cart, coupon, calculateTotals]);
+  useEffect(() => {
+    if (typeof calculateTotals === "function") {
+      calculateTotals();
+    }
+  }, [cart, coupon, calculateTotals]);
 
   // Compute original total before any discount
   const originalAmount = cart.reduce(

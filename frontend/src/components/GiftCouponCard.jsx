@@ -1,4 +1,3 @@
-// src/components/GiftCouponCard.jsx
 import { motion } from "framer-motion";
 import { Ticket, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -6,11 +5,17 @@ import { useCartStore } from "../stores/useCartStore";
 
 const GiftCouponCard = () => {
   const [userInputCode, setUserInputCode] = useState("");
-  const { coupon, isCouponApplied, applyCoupon, removeCoupon, getMyCoupon } =
-    useCartStore();
+
+  const coupon = useCartStore((state) => state.coupon);
+  const isCouponApplied = useCartStore((state) => state.isCouponApplied);
+  const applyCoupon = useCartStore((state) => state.applyCoupon);
+  const removeCoupon = useCartStore((state) => state.removeCoupon);
+  const getMyCoupon = useCartStore((state) => state.getMyCoupon);
 
   useEffect(() => {
-    getMyCoupon();
+    if (typeof getMyCoupon === "function") {
+      getMyCoupon();
+    }
   }, [getMyCoupon]);
 
   useEffect(() => {
@@ -18,7 +23,7 @@ const GiftCouponCard = () => {
   }, [coupon]);
 
   const handleApplyCoupon = () => {
-    if (!userInputCode) return;
+    if (!userInputCode.trim()) return;
     applyCoupon(userInputCode);
   };
 

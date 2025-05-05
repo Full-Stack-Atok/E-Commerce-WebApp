@@ -11,7 +11,8 @@ const money = new Intl.NumberFormat("en-PH", {
 });
 
 export default function CartItem({ item }) {
-  const { removeFromCart, updateQuantity } = useCartStore();
+  const removeFromCart = useCartStore((state) => state.removeFromCart);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
 
   return (
     <motion.div
