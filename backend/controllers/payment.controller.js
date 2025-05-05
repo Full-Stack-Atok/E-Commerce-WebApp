@@ -1,8 +1,10 @@
+// backend/controllers/payment.controller.js
+
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
 
-// Use your CLIENT_URL for hash‐based routing
+// Base URL of your client, loaded from env
 const CLIENT_URL = process.env.CLIENT_URL;
 
 export const createCheckoutSession = async (req, res) => {
@@ -59,7 +61,7 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // Create the Stripe Checkout Session with hash‐based URLs
+    // Create Stripe Checkout session with hash-based redirect URLs
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
@@ -80,11 +82,11 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    // Auto-gift a coupon for large orders
+    // Auto-gift coupon for orders ≥ ₱200.00
     if (totalAmount >= 20000) {
       await Coupon.findOneAndDelete({ userId: req.user._id });
       await new Coupon({
-        code: "GIFT" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        code: "GIFT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
         discountPercentage: 10,
         expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         userId: req.user._id,
@@ -94,10 +96,9 @@ export const createCheckoutSession = async (req, res) => {
     res.status(200).json({ id: session.id, totalAmount: totalAmount / 100 });
   } catch (error) {
     console.error("Error processing checkout:", error);
-    res.status(500).json({
-      message: "Error processing checkout",
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({ message: "Error processing checkout", error: error.message });
   }
 };
 
@@ -144,3 +145,23 @@ export const checkoutSuccess = async (req, res) => {
       .json({ message: "Error finalizing checkout", error: error.message });
   }
 };
+
+async function createStripeCoupon(discountPercentage) {
+  const coupon = await stripe.coupons.create({
+    percent_off: discountPercentage,
+    duration: "once",
+  });
+  return coupon.id;
+}
+
+async function createNewCoupon(userId) {
+  await Coupon.findOneAndDelete({ userId });
+  const newCoupon = new Coupon({
+    code: "GIFT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+    discountPercentage: 10,
+    expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    userId,
+  });
+  await newCoupon.save();
+  return newCoupon;
+}
