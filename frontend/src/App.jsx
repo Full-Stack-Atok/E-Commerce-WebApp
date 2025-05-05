@@ -1,4 +1,3 @@
-// src/App.jsx (routing)
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
@@ -23,23 +22,31 @@ export default function App() {
   const location = useLocation();
   const sessionId = new URLSearchParams(location.search).get("session_id");
 
-  const user = useUserStore((state) => state.user);
-  const checkAuth = useUserStore((state) => state.checkAuth);
-  const checkingAuth = useUserStore((state) => state.checkingAuth);
-  const getCartItems = useCartStore((state) => state.getCartItems);
+  const user = useUserStore((s) => s.user);
+  const checkAuth = useUserStore((s) => s.checkAuth);
+  const checkingAuth = useUserStore((s) => s.checkingAuth);
+  const getCartItems = useCartStore((s) => s.getCartItems);
 
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
   useEffect(() => {
     if (user) getCartItems();
   }, [user, getCartItems]);
+
   if (checkingAuth) return <LoadingSpinner />;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
-      <Navbar />
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_top,_rgba(255,255,255,0.6)_0%,_rgba(190,235,255,0.4)_45%,_rgba(180,220,255,0.2)_100%)]" />
+        </div>
+      </div>
+
       <div className="relative z-50 pt-24 px-4 mx-auto max-w-7xl w-full">
+        <Navbar />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route
@@ -83,9 +90,10 @@ export default function App() {
             }
           />
         </Routes>
-        <Toaster />
-        <ChatBot />
       </div>
+
+      <Toaster />
+      <ChatBot />
     </div>
   );
 }
