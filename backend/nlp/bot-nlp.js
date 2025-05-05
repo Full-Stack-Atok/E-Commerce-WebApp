@@ -1,7 +1,9 @@
 // backend/nlp/bot-nlp.js
 import { NlpManager } from "node-nlp";
-import Product from "../models/product.model.js";
+import fs from "fs";
+import path from "path";
 
+const MODEL_FILE = path.resolve("./model.nlp");
 const manager = new NlpManager({ languages: ["en"], forceNER: true });
 
 // ——————————————————————————
@@ -19,7 +21,6 @@ manager.addDocument("en", "where are you located", "location");
 manager.addDocument("en", "where is your shop", "location");
 manager.addDocument("en", "your location", "location");
 
-// You can add more examples here for “show products”, “product in CATEGORY”, etc.
 manager.addDocument("en", "show me products", "products.list");
 manager.addDocument("en", "recommend items", "products.list");
 manager.addDocument("en", "do you have *", "products.filter");
@@ -40,18 +41,25 @@ manager.addAnswer(
 );
 
 // ——————————————————————————
-// 3) Train & save the model (run once)
+// 3) Load or train & save model
 // ——————————————————————————
-export async function trainNLP(userName = "") {
-  // you can pass userName to inject into greeting via a Jinja variable
-  manager.container.register("user", userName);
-  await manager.train();
-  manager.save();
+if (fs.existsSync(MODEL_FILE)) {
+  manager.load(MODEL_FILE);
+} else {
+  console.warn(
+    "⚠️  model.nlp not found — run `node backend/nlp/train-nlp.js` to create it"
+  );
+}
+
+export async function parseMessage(message) {
+  return manager.process("en", message);
 }
 
 // ——————————————————————————
-// 4) Export a helper for your controller
+// 4) Train helper (run once)
 // ——————————————————————————
-export async function parseMessage(message) {
-  return manager.process("en", message);
+export async function trainNLP(userName = "") {
+  manager.container.register("user", userName);
+  await manager.train();
+  manager.save(MODEL_FILE);
 }

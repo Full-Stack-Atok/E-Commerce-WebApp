@@ -1,0 +1,589 @@
+{
+  "settings": {
+    "languages": [
+      "en"
+    ],
+    "forceNER": true,
+    "tag": "nlp",
+    "threshold": 0.5,
+    "autoLoad": true,
+    "autoSave": true,
+    "modelFileName": "model.nlp",
+    "executeActionsBeforeAnswers": false,
+    "calculateSentiment": true
+  },
+  "nluManager": {
+    "settings": {
+      "tag": "nlu-manager"
+    },
+    "locales": [
+      "en"
+    ],
+    "languageNames": {},
+    "domainManagers": {
+      "en": {
+        "settings": {
+          "locale": "en",
+          "trainByDomain": false,
+          "tag": "domain-manager-en",
+          "nluByDomain": {
+            "default": {
+              "className": "NeuralNlu",
+              "settings": {}
+            }
+          },
+          "useStemDict": true
+        },
+        "stemDict": {
+          "hi": {
+            "intent": "greeting",
+            "domain": "default"
+          },
+          "hello": {
+            "intent": "greeting",
+            "domain": "default"
+          },
+          "hey": {
+            "intent": "greeting",
+            "domain": "default"
+          },
+          "are,hour,what,your": {
+            "intent": "hours",
+            "domain": "default"
+          },
+          "do,open,when,you": {
+            "intent": "hours",
+            "domain": "default"
+          },
+          "hour,store": {
+            "intent": "hours",
+            "domain": "default"
+          },
+          "are,locat,where,you": {
+            "intent": "location",
+            "domain": "default"
+          },
+          "is,shop,where,your": {
+            "intent": "location",
+            "domain": "default"
+          },
+          "locat,your": {
+            "intent": "location",
+            "domain": "default"
+          },
+          "me,product,show": {
+            "intent": "products.list",
+            "domain": "default"
+          },
+          "item,recommend": {
+            "intent": "products.list",
+            "domain": "default"
+          },
+          "*,do,have,you": {
+            "intent": "products.filter",
+            "domain": "default"
+          }
+        },
+        "intentDict": {
+          "greeting": "default",
+          "hours": "default",
+          "location": "default",
+          "products.list": "default",
+          "products.filter": "default"
+        },
+        "sentences": [
+          {
+            "domain": "default",
+            "utterance": "hi",
+            "intent": "greeting"
+          },
+          {
+            "domain": "default",
+            "utterance": "hello",
+            "intent": "greeting"
+          },
+          {
+            "domain": "default",
+            "utterance": "hey",
+            "intent": "greeting"
+          },
+          {
+            "domain": "default",
+            "utterance": "what are your hours",
+            "intent": "hours"
+          },
+          {
+            "domain": "default",
+            "utterance": "when do you open",
+            "intent": "hours"
+          },
+          {
+            "domain": "default",
+            "utterance": "store hours",
+            "intent": "hours"
+          },
+          {
+            "domain": "default",
+            "utterance": "where are you located",
+            "intent": "location"
+          },
+          {
+            "domain": "default",
+            "utterance": "where is your shop",
+            "intent": "location"
+          },
+          {
+            "domain": "default",
+            "utterance": "your location",
+            "intent": "location"
+          },
+          {
+            "domain": "default",
+            "utterance": "show me products",
+            "intent": "products.list"
+          },
+          {
+            "domain": "default",
+            "utterance": "recommend items",
+            "intent": "products.list"
+          },
+          {
+            "domain": "default",
+            "utterance": "do you have *",
+            "intent": "products.filter"
+          }
+        ],
+        "domains": {
+          "master_domain": {
+            "settings": {
+              "locale": "en",
+              "tag": "nlu-en",
+              "keepStopwords": true,
+              "nonefeatureValue": 1,
+              "nonedeltaMultiplier": 1.2,
+              "spellCheck": false,
+              "spellCheckDistance": 1,
+              "filterZeros": true,
+              "log": true
+            },
+            "features": {
+              "hi": 1,
+              "hello": 1,
+              "hey": 1,
+              "what": 1,
+              "are": 1,
+              "your": 1,
+              "hour": 1,
+              "when": 1,
+              "do": 1,
+              "you": 1,
+              "open": 1,
+              "store": 1,
+              "where": 1,
+              "locat": 1,
+              "is": 1,
+              "shop": 1,
+              "show": 1,
+              "me": 1,
+              "product": 1,
+              "recommend": 1,
+              "item": 1,
+              "have": 1,
+              "*": 1
+            },
+            "intents": {
+              "greeting": 1,
+              "hours": 1,
+              "location": 1,
+              "products.list": 1,
+              "products.filter": 1
+            },
+            "intentFeatures": {
+              "greeting": {
+                "hi": 1,
+                "hello": 1,
+                "hey": 1
+              },
+              "hours": {
+                "what": 1,
+                "are": 1,
+                "your": 1,
+                "hour": 1,
+                "when": 1,
+                "do": 1,
+                "you": 1,
+                "open": 1,
+                "store": 1
+              },
+              "location": {
+                "where": 1,
+                "are": 1,
+                "you": 1,
+                "locat": 1,
+                "is": 1,
+                "your": 1,
+                "shop": 1
+              },
+              "products.list": {
+                "show": 1,
+                "me": 1,
+                "product": 1,
+                "recommend": 1,
+                "item": 1
+              },
+              "products.filter": {
+                "do": 1,
+                "you": 1,
+                "have": 1,
+                "*": 1
+              }
+            },
+            "featuresToIntent": {
+              "hi": [
+                "greeting"
+              ],
+              "hello": [
+                "greeting"
+              ],
+              "hey": [
+                "greeting"
+              ],
+              "what": [
+                "hours"
+              ],
+              "are": [
+                "hours",
+                "location"
+              ],
+              "your": [
+                "hours",
+                "location"
+              ],
+              "hour": [
+                "hours"
+              ],
+              "when": [
+                "hours"
+              ],
+              "do": [
+                "hours",
+                "products.filter"
+              ],
+              "you": [
+                "hours",
+                "location",
+                "products.filter"
+              ],
+              "open": [
+                "hours"
+              ],
+              "store": [
+                "hours"
+              ],
+              "where": [
+                "location"
+              ],
+              "locat": [
+                "location"
+              ],
+              "is": [
+                "location"
+              ],
+              "shop": [
+                "location"
+              ],
+              "show": [
+                "products.list"
+              ],
+              "me": [
+                "products.list"
+              ],
+              "product": [
+                "products.list"
+              ],
+              "recommend": [
+                "products.list"
+              ],
+              "item": [
+                "products.list"
+              ],
+              "have": [
+                "products.filter"
+              ],
+              "*": [
+                "products.filter"
+              ]
+            },
+            "neuralNetwork": {
+              "settings": {
+                "locale": "en",
+                "tag": "nlu-en",
+                "keepStopwords": true,
+                "nonefeatureValue": 1,
+                "nonedeltaMultiplier": 1.2,
+                "spellCheck": false,
+                "spellCheckDistance": 1,
+                "filterZeros": true,
+                "log": true
+              },
+              "features": [
+                "hi",
+                "hello",
+                "hey",
+                "what",
+                "are",
+                "your",
+                "hour",
+                "when",
+                "do",
+                "you",
+                "open",
+                "store",
+                "where",
+                "locat",
+                "is",
+                "shop",
+                "show",
+                "me",
+                "product",
+                "recommend",
+                "item",
+                "have",
+                "*"
+              ],
+              "intents": [
+                "greeting",
+                "hours",
+                "location",
+                "products.list",
+                "products.filter"
+              ],
+              "perceptrons": [
+                [
+                  8.177698135375977,
+                  8.215840339660645,
+                  8.145462989807129,
+                  -0.5236718654632568,
+                  -0.9528261423110962,
+                  -3.3351376056671143,
+                  -3.154406785964966,
+                  -0.9234811663627625,
+                  -1.8124799728393555,
+                  -2.2143476009368896,
+                  -0.9234811663627625,
+                  -2.5825753211975098,
+                  -1.1747186183929443,
+                  -2.3858566284179688,
+                  -0.7726374864578247,
+                  -0.7726374864578247,
+                  -1.9320340156555176,
+                  -1.9320340156555176,
+                  -1.9320340156555176,
+                  -2.848154306411743,
+                  -2.848154306411743,
+                  -0.8882590532302856,
+                  -0.8882590532302856,
+                  5.82953594355969
+                ],
+                [
+                  -1.1727091073989868,
+                  -1.1612565517425537,
+                  -1.1495758295059204,
+                  2.7752156257629395,
+                  1.4700490236282349,
+                  0.979822039604187,
+                  7.88956880569458,
+                  4.780542850494385,
+                  2.4139974117279053,
+                  1.1088298559188843,
+                  4.780542850494385,
+                  5.1124372482299805,
+                  -1.9487558603286743,
+                  -2.4276058673858643,
+                  -0.5973817110061646,
+                  -0.5973817110061646,
+                  -0.5372206568717957,
+                  -0.5372206568717957,
+                  -0.5372206568717957,
+                  -0.7138478755950928,
+                  -0.7138478755950928,
+                  -2.3660097122192383,
+                  -2.3660097122192383,
+                  1.2024059699428191
+                ],
+                [
+                  -0.9660048484802246,
+                  -0.9573181867599487,
+                  -0.9484292268753052,
+                  -2.7186973094940186,
+                  -0.3115415573120117,
+                  4.961508274078369,
+                  -2.8774917125701904,
+                  -0.5536981225013733,
+                  -1.2452597618103027,
+                  1.1639423370361328,
+                  -0.5536981225013733,
+                  -0.11854367703199387,
+                  4.400297164916992,
+                  8.101093292236328,
+                  1.9936414957046509,
+                  1.9936414957046509,
+                  -0.4655718505382538,
+                  -0.4655718505382538,
+                  -0.4655718505382538,
+                  -0.5768471360206604,
+                  -0.5768471360206604,
+                  -0.6533994674682617,
+                  -0.6533994674682617,
+                  0.9957396957916994
+                ],
+                [
+                  -1.5666167736053467,
+                  -1.5507529973983765,
+                  -1.534591555595398,
+                  -0.24345041811466217,
+                  -0.43168047070503235,
+                  -1.08623206615448,
+                  -1.0095735788345337,
+                  -0.25808191299438477,
+                  -0.6674991846084595,
+                  -0.8343953490257263,
+                  -0.25808191299438477,
+                  -0.728636622428894,
+                  -0.455609530210495,
+                  -0.6612432599067688,
+                  -0.2861032783985138,
+                  -0.2861032783985138,
+                  4.224326133728027,
+                  4.224326133728027,
+                  4.224326133728027,
+                  6.316560745239258,
+                  6.316560745239258,
+                  -0.3816455006599426,
+                  -0.3816455006599426,
+                  1.6023352056935631
+                ],
+                [
+                  -0.2808591425418854,
+                  -0.2753315567970276,
+                  -0.27002280950546265,
+                  -0.07273004204034805,
+                  -0.7467637658119202,
+                  -0.1481432169675827,
+                  -0.195648655295372,
+                  -2.3109207153320312,
+                  2.515017509460449,
+                  1.8551404476165771,
+                  -2.3109207153320312,
+                  -0.10333908349275589,
+                  -0.6905423402786255,
+                  -0.6878703832626343,
+                  -0.02422827109694481,
+                  -0.02422827109694481,
+                  -0.0927293598651886,
+                  -0.0927293598651886,
+                  -0.0927293598651886,
+                  -0.12838125228881836,
+                  -0.12838125228881836,
+                  4.826302528381348,
+                  4.826302528381348,
+                  0.2580354252576241
+                ]
+              ]
+            }
+          }
+        }
+      }
+    },
+    "intentDomains": {},
+    "extraSentences": [
+      [
+        "en",
+        "hi"
+      ],
+      [
+        "en",
+        "hello"
+      ],
+      [
+        "en",
+        "hey"
+      ],
+      [
+        "en",
+        "what are your hours"
+      ],
+      [
+        "en",
+        "when do you open"
+      ],
+      [
+        "en",
+        "store hours"
+      ],
+      [
+        "en",
+        "where are you located"
+      ],
+      [
+        "en",
+        "where is your shop"
+      ],
+      [
+        "en",
+        "your location"
+      ],
+      [
+        "en",
+        "show me products"
+      ],
+      [
+        "en",
+        "recommend items"
+      ],
+      [
+        "en",
+        "do you have *"
+      ]
+    ]
+  },
+  "ner": {
+    "settings": {
+      "tag": "ner",
+      "entityPreffix": "%",
+      "entitySuffix": "%"
+    },
+    "rules": {}
+  },
+  "nlgManager": {
+    "settings": {
+      "tag": "nlg-manager"
+    },
+    "responses": {
+      "en": {
+        "greeting": [
+          {
+            "answer": "Hello{{#if user}}, {{user}}{{/if}}! 👋 How can I help today?"
+          }
+        ],
+        "hours": [
+          {
+            "answer": "🕘 We’re open Mon–Sat, 9 AM to 6 PM."
+          }
+        ],
+        "location": [
+          {
+            "answer": "📍 We’re in Muntinlupa City, Philippines."
+          }
+        ]
+      }
+    }
+  },
+  "actionManager": {
+    "settings": {
+      "tag": "action-manager"
+    },
+    "actions": {}
+  },
+  "slotManager": {}
+}
