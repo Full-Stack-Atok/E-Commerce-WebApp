@@ -16,7 +16,7 @@ export const createCheckoutSession = async (req, res) => {
 
     let totalAmount = 0;
 
-    // Build Stripe line items in PHP centavos
+    // Build Stripe line items
     const line_items = products.map((product) => {
       const price = Number(product.price);
       const quantity = Number(product.quantity) || 1;
@@ -30,10 +30,7 @@ export const createCheckoutSession = async (req, res) => {
         price_data: {
           currency: "php",
           unit_amount: amount,
-          product_data: {
-            name: product.name,
-            images: [product.image],
-          },
+          product_data: { name: product.name, images: [product.image] },
         },
         quantity,
       };
@@ -60,13 +57,13 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // Create Stripe Checkout session with hash-based (HashRouter) URLs
+    // Create Checkout session with session_id on cancel
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
       success_url: `${CLIENT_URL}/#/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${CLIENT_URL}/#/purchase-cancel`,
+      cancel_url: `${CLIENT_URL}/#/purchase-cancel?session_id={CHECKOUT_SESSION_ID}`,
       discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : [],
       metadata: {
         userId: req.user._id.toString(),
@@ -81,11 +78,11 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    // Auto-gift coupon for orders ≥ ₱200.00
+    // Auto-gift coupon
     if (totalAmount >= 20000) {
       await Coupon.findOneAndDelete({ userId: req.user._id });
       await new Coupon({
-        code: "GIFT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+        code: `GIFT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
         discountPercentage: 10,
         expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         userId: req.user._id,
@@ -105,9 +102,7 @@ export const checkoutSuccess = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-
     if (session.payment_status === "paid") {
-      // Deactivate used coupon
       if (session.metadata.couponCode) {
         await Coupon.findOneAndUpdate(
           {
@@ -117,8 +112,6 @@ export const checkoutSuccess = async (req, res) => {
           { isActive: false }
         );
       }
-
-      // Create Order document
       const products = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
@@ -130,9 +123,7 @@ export const checkoutSuccess = async (req, res) => {
         totalAmount: session.amount_total / 100,
         stripeSessionId: sessionId,
       });
-
       await newOrder.save();
-
       res.status(200).json({ success: true, orderId: newOrder._id });
     } else {
       res.status(400).json({ message: "Payment not completed" });
