@@ -1,7 +1,7 @@
 // src/components/ChatBot.jsx
 import React, { useState, useRef, useEffect } from "react";
-import axios from "../lib/axios"; // make sure this instance has withCredentials:true
-import { SendHorizonal } from "lucide-react";
+import axios from "../lib/axios";
+import { SendHorizontal, X } from "lucide-react";
 import { useCartStore } from "../stores/useCartStore";
 import { useUserStore } from "../stores/useUserStore";
 
@@ -14,11 +14,10 @@ export default function ChatBot() {
   const [hasUnread, setHasUnread] = useState(false);
 
   const bottomRef = useRef(null);
-
   const user = useUserStore((s) => s.user);
   const addToCart = useCartStore((s) => s.addToCart);
 
-  // 1) Greet once after login
+  // greet once after login
   useEffect(() => {
     if (user && messages.length === 0) {
       setTimeout(() => {
@@ -34,7 +33,7 @@ export default function ChatBot() {
     }
   }, [user, messages.length]);
 
-  // 2) Play sound on every bot message & mark unread if closed
+  // play sound & mark unread *only* when new messages array changes
   useEffect(() => {
     if (messages.length === 0) return;
     const last = messages[messages.length - 1];
@@ -42,9 +41,9 @@ export default function ChatBot() {
       new Audio("/sounds/notify.wav").play().catch(() => {});
       if (!open) setHasUnread(true);
     }
-  }, [messages, open]);
+  }, [messages]);
 
-  // 3) Typing indicator dots
+  // typing “…” indicator
   useEffect(() => {
     if (!typing) return;
     const id = setInterval(() => {
@@ -53,12 +52,12 @@ export default function ChatBot() {
     return () => clearInterval(id);
   }, [typing]);
 
-  // 4) Auto-scroll
+  // scroll to bottom on new message or typing change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  // 5) Reset on logout
+  // reset on logout
   useEffect(() => {
     if (!user) {
       setOpen(false);
@@ -67,20 +66,18 @@ export default function ChatBot() {
     }
   }, [user]);
 
-  if (!user) return null; // hide if not logged in
+  if (!user) return null;
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
-    setMessages((m) => [...m, { sender: "user", text: input }]);
+    const text = input.trim();
+    if (!text) return;
+    setMessages((m) => [...m, { sender: "user", text }]);
     setTyping(true);
+    setInput("");
 
     try {
-      const { data } = await axios.post(
-        "/chatbot",
-        { message: input }
-        // if you didn’t set withCredentials globally, uncomment this:
-        // { withCredentials: true }
-      );
+      const { data } = await axios.post("/chatbot", { message: text });
+      // small artificial delay
       await new Promise((r) => setTimeout(r, 300));
       setMessages((m) => [
         ...m,
@@ -91,13 +88,11 @@ export default function ChatBot() {
         ...m,
         { sender: "bot", text: "Sorry, something went wrong." },
       ]);
+    } finally {
+      setTyping(false);
     }
-
-    setInput("");
-    setTyping(false);
   };
 
-  // 6) Add to cart
   const handleAddToCart = (product) => {
     addToCart(product);
   };
@@ -109,21 +104,35 @@ export default function ChatBot() {
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end space-y-2">
+      {/* Chat window */}
       {open && (
-        <div className="w-80 bg-slate-900 text-white rounded-xl shadow-xl overflow-hidden">
-          <div className="bg-slate-800 px-4 py-3 font-semibold border-b border-slate-700">
-            Rocket Bay Assistant
+        <div
+          className="w-full max-w-xs bg-slate-900 text-white rounded-xl shadow-2xl overflow-hidden transform transition-transform duration-300 ease-out origin-bottom-right"
+          style={{ animation: "slide-up 200ms ease-out" }}
+        >
+          {/* Header */}
+          <div className="bg-slate-800 px-4 py-2 flex justify-between items-center border-b border-slate-700">
+            <span className="font-semibold">Rocket Bay Assistant</span>
+            <button
+              onClick={toggleChat}
+              aria-label="Close chat"
+              className="p-1 hover:bg-slate-700 rounded"
+            >
+              <X size={18} />
+            </button>
           </div>
-          <div className="h-64 overflow-y-auto p-4 space-y-2 text-sm">
+
+          {/* Message list */}
+          <div className="h-64 overflow-y-auto p-4 flex flex-col space-y-2 text-sm">
             {messages.map((msg, i) => (
-              <div key={i} className="space-y-2">
+              <div key={i} className="space-y-1">
                 <div
                   className={`flex ${
                     msg.sender === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div
-                    className={`px-4 py-2 rounded-2xl ${
+                    className={`px-4 py-2 rounded-2xl max-w-[80%] break-words ${
                       msg.sender === "user"
                         ? "bg-blue-600 text-white"
                         : "bg-slate-700 text-slate-100"
@@ -137,7 +146,7 @@ export default function ChatBot() {
                     {msg.products.map((p, idx) => (
                       <div
                         key={idx}
-                        className="bg-slate-800 p-3 rounded-md shadow-md border border-slate-600"
+                        className="bg-slate-800 p-3 rounded-md shadow border border-slate-600"
                       >
                         <div className="flex justify-between items-center mb-2">
                           <span className="font-semibold text-white text-sm">
@@ -172,32 +181,52 @@ export default function ChatBot() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-slate-700 p-2 bg-slate-800 flex gap-2">
+          {/* Input */}
+          <div className="border-t border-slate-700 p-2 bg-slate-800 flex items-center gap-2">
             <input
-              className="flex-grow bg-slate-700 px-2 py-1 rounded focus:outline-none"
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               placeholder="Ask me…"
+              autoFocus
+              className="flex-grow bg-slate-700 px-3 py-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
             />
             <button
               onClick={sendMessage}
-              className="p-1 bg-blue-600 rounded hover:bg-blue-700"
+              aria-label="Send message"
+              className="p-2 bg-blue-600 rounded hover:bg-blue-700 transition"
             >
-              <SendHorizonal size={18} />
+              <SendHorizontal size={18} />
             </button>
           </div>
         </div>
       )}
+
+      {/* Toggle button */}
       <button
         onClick={toggleChat}
+        aria-label="Toggle chat"
         className="relative bg-slate-800 text-white p-3 rounded-full shadow-md hover:bg-slate-700 transition"
       >
         {open ? "✖" : "💬"}
         {hasUnread && (
-          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full" />
+          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
         )}
       </button>
+
+      <style jsx>{`
+        @keyframes slide-up {
+          from {
+            transform: translateY(10px) scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }
