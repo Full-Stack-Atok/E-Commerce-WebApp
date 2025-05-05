@@ -1,18 +1,19 @@
 // backend/src/controllers/cart.controller.js
-import Product from "../models/product.model.js";
 import User from "../models/user.model.js";
 
 // GET /api/cart
 export const getCartProducts = async (req, res) => {
   try {
-    // Load user with populated cartItems.product
     const user = await User.findById(req.user._id).populate(
       "cartItems.product",
       "name price image"
     );
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Return the populated array
+    // Automatically remove invalid cartItems
+    user.cartItems = user.cartItems.filter((ci) => ci.product);
+    await user.save();
+
     return res.json(user.cartItems);
   } catch (err) {
     console.error("getCartProducts error:", err);
@@ -20,7 +21,7 @@ export const getCartProducts = async (req, res) => {
   }
 };
 
-// POST /api/cart  — add one unit of product
+// POST /api/cart - add product
 export const addToCart = async (req, res) => {
   try {
     const { productId } = req.body;
@@ -30,7 +31,6 @@ export const addToCart = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Look for an existing cart item
     const existing = user.cartItems.find(
       (ci) => ci.product.toString() === productId
     );
@@ -53,13 +53,11 @@ export const addToCart = async (req, res) => {
   }
 };
 
-// PUT /api/cart/:id  — set quantity (or remove if zero)
+// PUT /api/cart/:id - update quantity
 export const updateQuantity = async (req, res) => {
   try {
     const productId = req.params.id;
     const { quantity } = req.body;
-    if (typeof quantity !== "number")
-      return res.status(400).json({ message: "quantity is required" });
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -67,6 +65,7 @@ export const updateQuantity = async (req, res) => {
     const item = user.cartItems.find(
       (ci) => ci.product.toString() === productId
     );
+
     if (!item) return res.status(404).json({ message: "Item not in cart" });
 
     if (quantity <= 0) {
@@ -89,18 +88,16 @@ export const updateQuantity = async (req, res) => {
   }
 };
 
-// DELETE /api/cart   — remove a single product
+// DELETE /api/cart - remove product
 export const removeFromCart = async (req, res) => {
   try {
     const { productId } = req.body;
-    if (!productId)
-      return res.status(400).json({ message: "productId is required" });
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.cartItems = user.cartItems.filter(
-      (ci) => ci.product.toString() !== productId
+      (ci) => ci.product && ci.product.toString() !== productId
     );
     await user.save();
 
@@ -115,7 +112,7 @@ export const removeFromCart = async (req, res) => {
   }
 };
 
-// DELETE /api/cart/clear — remove all items
+// DELETE /api/cart/clear - clear cart
 export const clearCart = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);

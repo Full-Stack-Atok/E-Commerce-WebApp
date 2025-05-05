@@ -1,16 +1,14 @@
+// frontend/src/stores/useCartStore.js
 import { create } from "zustand";
 import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
 
 export const useCartStore = create((set, get) => ({
-  // ── state ────────────────────────────────────────────────────
-  cart: [], // array of { product: {...}, quantity }
+  cart: [],
   coupon: null,
   subtotal: 0,
   total: 0,
   isCouponApplied: false,
-
-  // ── actions ──────────────────────────────────────────────────
 
   // Load cart
   getCartItems: async () => {
@@ -46,7 +44,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Remove applied coupon
+  // Remove coupon
   removeCoupon: () => {
     set({ coupon: null, isCouponApplied: false });
     get().calculateTotals();
@@ -77,7 +75,7 @@ export const useCartStore = create((set, get) => ({
     }
   },
 
-  // Update product quantity
+  // Update quantity
   updateQuantity: async (productId, quantity) => {
     try {
       const { data } = await axios.put(`/cart/${productId}`, { quantity });
@@ -107,17 +105,14 @@ export const useCartStore = create((set, get) => ({
   },
 
   // ── helpers ──────────────────────────────────────────────────
-
   calculateTotals: () => {
     const { cart, coupon } = get();
 
-    // Ensure product structure exists before calculating
-    const validCart = cart.filter((item) => item.product);
-    const subtotal = validCart.reduce((sum, ci) => {
-      const price = Number(ci.product.price) || 0;
-      const quantity = Number(ci.quantity) || 0;
-      return sum + price * quantity;
-    }, 0);
+    const validCart = cart.filter((item) => item.product && item.product.price);
+    const subtotal = validCart.reduce(
+      (sum, ci) => sum + ci.product.price * ci.quantity,
+      0
+    );
 
     let total = subtotal;
     if (coupon) {
