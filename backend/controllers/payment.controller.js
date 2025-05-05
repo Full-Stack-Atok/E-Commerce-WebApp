@@ -1,5 +1,4 @@
 // backend/controllers/payment.controller.js
-
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
@@ -61,7 +60,7 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // Create Stripe Checkout session with hash-based redirect URLs
+    // Create Stripe Checkout session with hash-based (HashRouter) URLs
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
@@ -145,23 +144,3 @@ export const checkoutSuccess = async (req, res) => {
       .json({ message: "Error finalizing checkout", error: error.message });
   }
 };
-
-async function createStripeCoupon(discountPercentage) {
-  const coupon = await stripe.coupons.create({
-    percent_off: discountPercentage,
-    duration: "once",
-  });
-  return coupon.id;
-}
-
-async function createNewCoupon(userId) {
-  await Coupon.findOneAndDelete({ userId });
-  const newCoupon = new Coupon({
-    code: "GIFT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-    discountPercentage: 10,
-    expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    userId,
-  });
-  await newCoupon.save();
-  return newCoupon;
-}
