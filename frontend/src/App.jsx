@@ -1,3 +1,4 @@
+// src/App.jsx
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
@@ -27,14 +28,17 @@ export default function App() {
   const checkingAuth = useUserStore((s) => s.checkingAuth);
   const getCartItems = useCartStore((s) => s.getCartItems);
 
+  // On mount, kick off auth check
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
 
+  // Once user is set, load cart
   useEffect(() => {
     if (user) getCartItems();
   }, [user, getCartItems]);
 
+  // While we’re refreshing token + fetching profile:
   if (checkingAuth) return <LoadingSpinner />;
 
   return (
@@ -49,24 +53,31 @@ export default function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<HomePage />} />
+
           <Route
             path="/signup"
-            element={!user ? <SignUpPage /> : <Navigate to="/" />}
+            element={!user ? <SignUpPage /> : <Navigate to="/" replace />}
           />
           <Route
             path="/login"
-            element={!user ? <LoginPage /> : <Navigate to="/" />}
+            element={!user ? <LoginPage /> : <Navigate to="/" replace />}
           />
+
           <Route
             path="/secret-dashboard"
             element={
-              user?.role === "admin" ? <AdminPage /> : <Navigate to="/login" />
+              user?.role === "admin" ? (
+                <AdminPage />
+              ) : (
+                <Navigate to="/login" replace />
+              )
             }
           />
+
           <Route path="/category/:category" element={<CategoryPage />} />
           <Route
             path="/cart"
-            element={user ? <CartPage /> : <Navigate to="/login" />}
+            element={user ? <CartPage /> : <Navigate to="/login" replace />}
           />
 
           <Route
@@ -75,7 +86,7 @@ export default function App() {
               sessionId || user ? (
                 <PurchaseSuccessPage />
               ) : (
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               )
             }
           />
@@ -85,7 +96,7 @@ export default function App() {
               sessionId || user ? (
                 <PurchaseCancelPage />
               ) : (
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               )
             }
           />

@@ -1,3 +1,4 @@
+// src/stores/useUserStore.js
 import { create } from "zustand";
 import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
@@ -9,30 +10,33 @@ export const useUserStore = create((set, get) => ({
 
   signup: async ({ name, email, password, confirmPassword }) => {
     set({ loading: true });
-
     if (password !== confirmPassword) {
       set({ loading: false });
       return toast.error("Passwords do not match");
     }
-
     try {
-      const res = await axios.post("/auth/signup", { name, email, password });
-      set({ user: res.data, loading: false });
+      const res = await axios.post("/auth/signup", {
+        name,
+        email,
+        password,
+      });
+      set({ user: res.data });
     } catch (error) {
-      set({ loading: false });
       toast.error(error.response?.data?.message || "An error occurred");
+    } finally {
+      set({ loading: false });
     }
   },
 
   login: async (email, password) => {
     set({ loading: true });
-
     try {
       const res = await axios.post("/auth/login", { email, password });
-      set({ user: res.data, loading: false });
+      set({ user: res.data });
     } catch (error) {
-      set({ loading: false });
       toast.error(error.response?.data?.message || "An error occurred");
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -50,13 +54,13 @@ export const useUserStore = create((set, get) => ({
   checkAuth: async () => {
     set({ checkingAuth: true });
     try {
-      // first refresh access token
+      // 1) refresh cookie-based token
       await get().refreshToken();
-      // then get profile
-      const response = await axios.get("/auth/profile");
-      set({ user: response.data });
+      // 2) fetch profile
+      const { data } = await axios.get("/auth/profile");
+      set({ user: data });
     } catch (error) {
-      console.error("checkAuth error:", error.message);
+      console.error("checkAuth error:", error);
       set({ user: null });
     } finally {
       set({ checkingAuth: false });
@@ -64,14 +68,12 @@ export const useUserStore = create((set, get) => ({
   },
 
   refreshToken: async () => {
-    set({ checkingAuth: true });
+    // only handle cookie refresh; don't toggle checkingAuth here
     try {
       await axios.post("/auth/refresh-token");
     } catch (error) {
       set({ user: null });
       throw error;
-    } finally {
-      set({ checkingAuth: false });
     }
   },
 }));
@@ -81,24 +83,23 @@ let refreshPromise = null;
 axios.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const original = error.config;
     if (
       error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url.endsWith("/auth/refresh-token")
+      !original._retry &&
+      !original.url.endsWith("/auth/refresh-token")
     ) {
-      originalRequest._retry = true;
-
+      original._retry = true;
       try {
         if (!refreshPromise) {
           refreshPromise = useUserStore.getState().refreshToken();
         }
         await refreshPromise;
         refreshPromise = null;
-        return axios(originalRequest);
-      } catch (refreshError) {
+        return axios(original);
+      } catch (e) {
         useUserStore.getState().logout();
-        return Promise.reject(refreshError);
+        return Promise.reject(e);
       }
     }
     return Promise.reject(error);
