@@ -19,7 +19,7 @@ import { useUserStore } from "./stores/useUserStore";
 import { useCartStore } from "./stores/useCartStore";
 
 export default function App() {
-  // Grab session_id if present in URL
+  // Read Stripe session_id from URL if present
   const location = useLocation();
   const sessionId = new URLSearchParams(location.search).get("session_id");
 
@@ -50,6 +50,7 @@ export default function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<HomePage />} />
+
           <Route
             path="/signup"
             element={!user ? <SignUpPage /> : <Navigate to="/" />}
@@ -58,25 +59,24 @@ export default function App() {
             path="/login"
             element={!user ? <LoginPage /> : <Navigate to="/" />}
           />
+
           <Route
             path="/secret-dashboard"
             element={
               user?.role === "admin" ? <AdminPage /> : <Navigate to="/login" />
             }
           />
+
           <Route path="/category/:category" element={<CategoryPage />} />
           <Route
             path="/cart"
             element={user ? <CartPage /> : <Navigate to="/login" />}
           />
 
-          {/* Public or Stripe-accessible purchase routes */}
           <Route
             path="/purchase-success"
             element={
-              sessionId ? (
-                <PurchaseSuccessPage />
-              ) : user ? (
+              sessionId || user ? (
                 <PurchaseSuccessPage />
               ) : (
                 <Navigate to="/login" />
@@ -86,9 +86,7 @@ export default function App() {
           <Route
             path="/purchase-cancel"
             element={
-              sessionId ? (
-                <PurchaseCancelPage />
-              ) : user ? (
+              sessionId || user ? (
                 <PurchaseCancelPage />
               ) : (
                 <Navigate to="/login" />

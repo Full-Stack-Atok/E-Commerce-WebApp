@@ -1,8 +1,9 @@
-// backend/controllers/payment.controller.js
-
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
+
+// Use your CLIENT_URL for hash‐based routing
+const CLIENT_URL = process.env.CLIENT_URL;
 
 export const createCheckoutSession = async (req, res) => {
   try {
@@ -14,53 +15,58 @@ export const createCheckoutSession = async (req, res) => {
 
     let totalAmount = 0;
 
-    // Build line items charging in Philippine pesos (centavos)
+    // Build Stripe line items in PHP centavos
     const line_items = products.map((product) => {
-      const amount = Math.round(product.price * 100); // PHP in centavos
-      totalAmount += amount * product.quantity;
+      const price = Number(product.price);
+      const quantity = Number(product.quantity) || 1;
+      if (isNaN(price) || price <= 0) {
+        throw new Error(`Invalid price for product "${product.name}"`);
+      }
+      const amount = Math.round(price * 100);
+      totalAmount += amount * quantity;
 
       return {
         price_data: {
-          currency: "php", // ← set currency to PHP
-          unit_amount: amount, // price × 100
+          currency: "php",
+          unit_amount: amount,
           product_data: {
             name: product.name,
             images: [product.image],
           },
         },
-        quantity: product.quantity || 1,
+        quantity,
       };
     });
 
-    // Look up and apply coupon discount if provided
-    let coupon = null;
+    // Apply coupon discount if provided
+    let stripeCouponId = null;
     if (couponCode) {
-      coupon = await Coupon.findOne({
+      const coupon = await Coupon.findOne({
         code: couponCode,
         userId: req.user._id,
         isActive: true,
       });
       if (coupon) {
-        totalAmount -= Math.round(
+        const discountAmount = Math.round(
           (totalAmount * coupon.discountPercentage) / 100
         );
+        totalAmount -= discountAmount;
+        const stripeCoupon = await stripe.coupons.create({
+          percent_off: coupon.discountPercentage,
+          duration: "once",
+        });
+        stripeCouponId = stripeCoupon.id;
       }
     }
 
-    // Create the Stripe Checkout Session
+    // Create the Stripe Checkout Session with hash‐based URLs
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/purchase-cancel`,
-      discounts: coupon
-        ? [
-            {
-              coupon: await createStripeCoupon(coupon.discountPercentage),
-            },
-          ]
-        : [],
+      success_url: `${CLIENT_URL}/#/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${CLIENT_URL}/#/purchase-cancel`,
+      discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : [],
       metadata: {
         userId: req.user._id.toString(),
         couponCode: couponCode || "",
@@ -72,20 +78,26 @@ export const createCheckoutSession = async (req, res) => {
           }))
         ),
       },
-      // locale: "en", // optional: force English UI; otherwise Stripe will auto-detect
     });
 
-    // If total (in centavos) ≥ ₱200.00, issue a new gift coupon
+    // Auto-gift a coupon for large orders
     if (totalAmount >= 20000) {
-      await createNewCoupon(req.user._id);
+      await Coupon.findOneAndDelete({ userId: req.user._id });
+      await new Coupon({
+        code: "GIFT" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        discountPercentage: 10,
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        userId: req.user._id,
+      }).save();
     }
 
     res.status(200).json({ id: session.id, totalAmount: totalAmount / 100 });
   } catch (error) {
     console.error("Error processing checkout:", error);
-    res
-      .status(500)
-      .json({ message: "Error processing checkout", error: error.message });
+    res.status(500).json({
+      message: "Error processing checkout",
+      error: error.message,
+    });
   }
 };
 
@@ -106,59 +118,29 @@ export const checkoutSuccess = async (req, res) => {
         );
       }
 
-      // Create a new Order document
+      // Create Order document
       const products = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
-        products: products.map((product) => ({
-          product: product.id,
-          quantity: product.quantity,
-          price: product.price,
+        products: products.map((p) => ({
+          product: p.id,
+          quantity: p.quantity,
+          price: p.price,
         })),
-        totalAmount: session.amount_total / 100, // convert centavos to pesos
+        totalAmount: session.amount_total / 100,
         stripeSessionId: sessionId,
       });
 
       await newOrder.save();
 
-      res.status(200).json({
-        success: true,
-        message:
-          "Payment successful, order created, and coupon deactivated if used.",
-        orderId: newOrder._id,
-      });
+      res.status(200).json({ success: true, orderId: newOrder._id });
     } else {
       res.status(400).json({ message: "Payment not completed" });
     }
   } catch (error) {
-    console.error("Error processing successful checkout:", error);
-    res.status(500).json({
-      message: "Error processing successful checkout",
-      error: error.message,
-    });
+    console.error("Error finalizing checkout:", error);
+    res
+      .status(500)
+      .json({ message: "Error finalizing checkout", error: error.message });
   }
 };
-
-async function createStripeCoupon(discountPercentage) {
-  const coupon = await stripe.coupons.create({
-    percent_off: discountPercentage,
-    duration: "once",
-  });
-  return coupon.id;
-}
-
-async function createNewCoupon(userId) {
-  // Delete any existing coupon for this user
-  await Coupon.findOneAndDelete({ userId });
-
-  // Create a new gift coupon valid for 30 days
-  const newCoupon = new Coupon({
-    code: "GIFT" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-    discountPercentage: 10,
-    expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    userId: userId,
-  });
-
-  await newCoupon.save();
-  return newCoupon;
-}
