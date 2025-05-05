@@ -9,7 +9,7 @@ export default function PurchaseCancelPage() {
   const sessionId = new URLSearchParams(search).get("session_id");
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gray-900 text-white">
+    <div className="min-h-screen flex items-center justify-center px-4 text-white">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
