@@ -6,7 +6,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import axios from "../lib/axios";
 import { useEffect, useCallback } from "react";
 
-// Pull key from Vite env and force locale to 'auto'
+// Load Stripe with locale auto
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
   locale: "auto",
 });
@@ -18,20 +18,19 @@ const OrderSummary = () => {
   const total = useCartStore((state) => state.total);
   const calculateTotals = useCartStore((state) => state.calculateTotals);
 
-  // Recalculate whenever cart or coupon changes
+  // Recalculate on cart or coupon change
   useEffect(() => {
     if (typeof calculateTotals === "function") {
       calculateTotals();
     }
   }, [cart, coupon, calculateTotals]);
 
-  // Compute original total before any discount
+  // Original total before discount
   const originalAmount = cart.reduce(
     (sum, item) => sum + (item.product?.price || 0) * item.quantity,
     0
   );
 
-  // Savings and formatting
   const savings = originalAmount - total;
   const fmt = (v) =>
     v.toLocaleString("en-PH", { style: "currency", currency: "PHP" });
@@ -40,7 +39,6 @@ const OrderSummary = () => {
   const formattedSavings = fmt(savings);
   const formattedTotal = fmt(total);
 
-  // Shared classes
   const rowClass = "flex justify-between text-gray-300";
   const valWhite = "text-white";
   const valDim = "text-slate-400";
@@ -51,19 +49,28 @@ const OrderSummary = () => {
   const handlePayment = useCallback(async () => {
     const stripe = await stripePromise;
 
-    // Build payload: include couponCode only if applied
+    // ✅ Flattened product payload
     const payload = {
-      products: cart,
+      products: cart.map((item) => ({
+        _id: item.product._id,
+        name: item.product.name,
+        price: item.product.price,
+        image: item.product.image,
+        quantity: item.quantity,
+      })),
       ...(isCouponApplied && coupon?.code ? { couponCode: coupon.code } : {}),
     };
+
+    console.log("Sending checkout payload:", payload);
 
     try {
       const { data } = await axios.post(
         "/payments/create-checkout-session",
         payload
       );
+
       const sessionId = data.id;
-      if (!sessionId) throw new Error("No session ID from API");
+      if (!sessionId) throw new Error("No session ID returned");
 
       const { error } = await stripe.redirectToCheckout({ sessionId });
       if (error) console.error("Stripe redirect error:", error.message);
@@ -97,7 +104,7 @@ const OrderSummary = () => {
             </dl>
           )}
 
-          {/* Coupon % */}
+          {/* Coupon */}
           {coupon && isCouponApplied && (
             <dl className={rowClass}>
               <dt>Coupon ({coupon.code})</dt>
@@ -112,7 +119,7 @@ const OrderSummary = () => {
           </dl>
         </div>
 
-        {/* Proceed to Checkout */}
+        {/* Checkout Button */}
         <motion.button
           onClick={handlePayment}
           className={checkoutBtn}
