@@ -27,7 +27,7 @@ const OrderSummary = () => {
 
   // Compute original total before any discount
   const originalAmount = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
     0
   );
 
