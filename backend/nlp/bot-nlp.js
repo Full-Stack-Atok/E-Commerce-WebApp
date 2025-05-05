@@ -2,21 +2,26 @@
 import { NlpManager } from "node-nlp";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const MODEL_FILE = path.join(__dirname, "../model.nlp");
+// replicate __dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const MODEL_FILE = path.resolve(__dirname, "../model.nlp");
 const manager = new NlpManager({ languages: ["en"], forceNER: true });
 
-// Load the trained model
+// load the trained model (if it exists)
 if (fs.existsSync(MODEL_FILE)) {
   manager.load(MODEL_FILE);
 } else {
   console.warn(
-    "⚠️  model.nlp not found — run `npm run train-nlp` to create it"
+    "⚠️  model.nlp not found — run `npm run train-nlp` before starting"
   );
 }
 
 /**
- * Parse a message, injecting the user’s name for greetings.
+ * Parses a user message through the NLP model, injecting the user’s name.
  * @param {string} message
  * @param {string} userName
  */

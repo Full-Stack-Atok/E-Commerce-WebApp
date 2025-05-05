@@ -1,34 +1,38 @@
+// backend/nlp/train-nlp.js
 import { NlpManager } from "node-nlp";
+import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const MODEL_FILE = path.resolve("./model.nlp");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const MODEL_FILE = path.resolve(__dirname, "../model.nlp");
+
 const manager = new NlpManager({ languages: ["en"], forceNER: true });
 
-// — Intents & example utterances —
-// GREETING
+// ——————————————————————————
+// 1) Register your intents & utterances
+// ——————————————————————————
 manager.addDocument("en", "hi", "greeting");
 manager.addDocument("en", "hello", "greeting");
 manager.addDocument("en", "hey", "greeting");
 manager.addDocument("en", "how are you", "greeting");
 manager.addDocument("en", "how are you doing", "greeting");
-manager.addDocument("en", "what's up", "greeting");
-manager.addDocument("en", "howdy", "greeting");
 
-// HOURS
 manager.addDocument("en", "what are your hours", "hours");
 manager.addDocument("en", "when do you open", "hours");
 manager.addDocument("en", "store hours", "hours");
 
-// LOCATION
 manager.addDocument("en", "where are you located", "location");
 manager.addDocument("en", "where is your shop", "location");
 
-// PRODUCT LISTING
 manager.addDocument("en", "show me products", "products.list");
 manager.addDocument("en", "recommend items", "products.list");
 manager.addDocument("en", "do you have *", "products.filter");
 
-// — Static replies —
+// ——————————————————————————
+// 2) Register static replies
+// ——————————————————————————
 manager.addAnswer(
   "en",
   "greeting",
@@ -41,10 +45,17 @@ manager.addAnswer(
   "📍 We’re in Muntinlupa City, Philippines."
 );
 
-// — Train & save —
+// ——————————————————————————
+// 3) Train & save
+// ——————————————————————————
 (async () => {
   console.log("🔄 Training NLP model…");
   await manager.train();
+
+  // ensure target directory exists
+  const dir = path.dirname(MODEL_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
   manager.save(MODEL_FILE);
   console.log("✅ model.nlp saved!");
   process.exit(0);
