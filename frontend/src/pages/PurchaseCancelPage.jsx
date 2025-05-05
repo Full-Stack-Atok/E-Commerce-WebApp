@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 
 export default function PurchaseCancelPage() {
-  // You can read session_id if needed:
+  // Read session_id if Stripe passed it; not used currently
   const { search } = useLocation();
   const sessionId = new URLSearchParams(search).get("session_id");
 
