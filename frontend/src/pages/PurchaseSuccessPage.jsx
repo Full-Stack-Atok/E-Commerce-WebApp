@@ -2,7 +2,7 @@
 
 import { ArrowRight, CheckCircle, HandHeart } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom"; // import useLocation
 import { useCartStore } from "../stores/useCartStore";
 import axios from "../lib/axios.js";
 import Confetti from "react-confetti";
@@ -12,9 +12,9 @@ const PurchaseSuccessPage = () => {
   const [error, setError] = useState(null);
   const [orderId, setOrderId] = useState(null);
 
-  // Grab clearCart action from zustand store
   const clearCart = useCartStore((s) => s.clearCart);
   const navigate = useNavigate();
+  const { search } = useLocation(); // get search from react-router
 
   // Track viewport size
   const [dimensions, setDimensions] = useState({
@@ -33,11 +33,9 @@ const PurchaseSuccessPage = () => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Finalize the order once Stripe redirects back
   useEffect(() => {
-    const sessionId = new URLSearchParams(window.location.search).get(
-      "session_id"
-    );
+    // parse session_id from URL search
+    const sessionId = new URLSearchParams(search).get("session_id");
     if (!sessionId) {
       setError("No session ID found in the URL");
       setIsProcessing(false);
@@ -60,7 +58,7 @@ const PurchaseSuccessPage = () => {
     };
 
     finalize();
-  }, [clearCart]);
+  }, [search, clearCart]); // include search
 
   if (isProcessing) {
     return (
@@ -86,7 +84,6 @@ const PurchaseSuccessPage = () => {
 
   return (
     <>
-      {/* Confetti now fills the whole viewport */}
       <Confetti
         width={dimensions.width}
         height={dimensions.height}
