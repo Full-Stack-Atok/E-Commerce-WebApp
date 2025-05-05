@@ -1,9 +1,7 @@
-// src/components/CartItem.jsx
 import { Minus, Plus, Trash } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCartStore } from "../stores/useCartStore";
 
-// Philippine peso formatter
 const money = new Intl.NumberFormat("en-PH", {
   style: "currency",
   currency: "PHP",
@@ -26,7 +24,7 @@ export default function CartItem({ item }) {
     >
       {/* Remove button */}
       <motion.button
-        onClick={() => removeFromCart(item._id)}
+        onClick={() => removeFromCart(item.product._id)}
         whileHover={{ scale: 1.2 }}
         className="absolute top-3 right-3 text-slate-400 hover:text-red-400"
         aria-label="Remove item"
@@ -38,8 +36,8 @@ export default function CartItem({ item }) {
         {/* Image */}
         <div className="flex-shrink-0">
           <img
-            src={item.image}
-            alt={item.name}
+            src={item.product.image}
+            alt={item.product.name}
             className="h-24 w-24 md:h-32 md:w-32 rounded-lg object-cover"
           />
         </div>
@@ -47,17 +45,17 @@ export default function CartItem({ item }) {
         {/* Name & Description */}
         <div className="flex-1 px-2 space-y-1">
           <h3 className="text-lg font-semibold text-slate-100 leading-snug">
-            {item.name}
+            {item.product.name}
           </h3>
           <p className="text-sm text-slate-400 leading-relaxed">
-            {item.description}
+            {/* Optional: If you don't store a description, you can remove this */}
           </p>
         </div>
 
         {/* Quantity controls */}
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => updateQuantity(item._id, item.quantity - 1)}
+            onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
             disabled={item.quantity <= 1}
             className="flex h-7 w-7 items-center justify-center rounded border border-slate-600 bg-slate-700 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50"
           >
@@ -67,7 +65,7 @@ export default function CartItem({ item }) {
             {item.quantity}
           </span>
           <button
-            onClick={() => updateQuantity(item._id, item.quantity + 1)}
+            onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
             className="flex h-7 w-7 items-center justify-center rounded border border-slate-600 bg-slate-700 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-400"
           >
             <Plus className="h-4 w-4 text-slate-200" />
@@ -77,7 +75,7 @@ export default function CartItem({ item }) {
         {/* Price */}
         <div className="w-28 text-right">
           <p className="text-lg font-bold text-slate-100">
-            {money.format(item.price)}
+            {money.format(item.product.price)}
           </p>
         </div>
       </div>
