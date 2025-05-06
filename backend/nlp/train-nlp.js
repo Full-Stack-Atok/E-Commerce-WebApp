@@ -11,10 +11,9 @@ const __dirname = path.dirname(__filename);
 const MODEL_FILE = path.resolve(__dirname, "../model.nlp");
 const manager = new NlpManager({ languages: ["en"], forceNER: true });
 
-// ——————————————————————————
-// 0) Named entities BEFORE you reference them
-// ——————————————————————————
-
+// ─────────────────────────────────────────────────────────────────────────────
+// 0) Define your named‐entities first
+// ─────────────────────────────────────────────────────────────────────────────
 const categories = [
   "Jeans",
   "T-Shirts",
@@ -42,11 +41,10 @@ manager.addNamedEntityText(
   ["nike backpack", "backpack", "laptop sleeve", "formal suit"]
 );
 
-// ——————————————————————————
-// 1) Example utterances for each intent
-// ——————————————————————————
-
-// BOT AGE (so we catch it before greeting)
+// ─────────────────────────────────────────────────────────────────────────────
+// 1) Training phrases (addDocument)
+// ─────────────────────────────────────────────────────────────────────────────
+// BOT AGE
 manager.addDocument("en", "how old are you", "bot.age");
 manager.addDocument("en", "what is your age", "bot.age");
 manager.addDocument("en", "when were you created", "bot.age");
@@ -77,8 +75,8 @@ manager.addDocument("en", "show me products", "products.list");
 manager.addDocument("en", "recommend items", "products.list");
 
 // PRICE QUERY
-manager.addDocument("en", "how much is *", "price.query");
-manager.addDocument("en", "price of *", "price.query");
+manager.addDocument("en", "how much is %product%", "price.query");
+manager.addDocument("en", "price of %product%", "price.query");
 
 // COUPON INFO
 manager.addDocument("en", "any coupon code", "coupon.info");
@@ -91,77 +89,82 @@ manager.addDocument("en", "list %category%", "products.byCategory");
 manager.addDocument("en", "what %category% do you have", "products.byCategory");
 manager.addDocument("en", "do you sell %category%", "products.byCategory");
 
-// ——————————————————————————
-// 2) Static replies for each intent
-// ——————————————————————————
-
-// Bot age
+// ─────────────────────────────────────────────────────────────────────────────
+// 2) Static replies (addAnswer)
+// ─────────────────────────────────────────────────────────────────────────────
+// bot.age
 manager.addAnswer(
   "en",
   "bot.age",
   "I’m an AI assistant without a traditional age—I came online when my model was deployed."
 );
 
-// Greeting
+// greeting
 manager.addAnswer(
   "en",
   "greeting",
-  "Hello{{user ? ', ' + user : ''}}! 👋 How can I help today?"
+  "Hello{{user ? ', ' + user : ''}}! 👋 What can I do for you today?"
 );
 
-// Hours
-manager.addAnswer("en", "hours", "🕘 We're open Mon–Sat, 9 AM to 6 PM.");
+// hours
+manager.addAnswer("en", "hours", "🕘 Our hours are Mon–Sat, 9 AM–6 PM.");
 
-// Location
+// location
 manager.addAnswer(
   "en",
   "location",
-  "📍 We're in Muntinlupa City, Philippines."
+  "📍 We’re located in Muntinlupa City, Philippines."
 );
 
-// Products list
+// products.list
 manager.addAnswer(
   "en",
   "products.list",
   "Sure! Here are some of our top items: ..."
 );
 
-// Product availability
+// product.availability
 manager.addAnswer(
   "en",
   "product.availability",
-  "Let me check… Yes, we have {{entity.product}} in stock! 🎉"
+  "Let me check… Yes, we currently have **{{entity.product}}** in stock! 🎉"
 );
 
-// Price query
+// price.query
 manager.addAnswer(
   "en",
   "price.query",
-  "The price for \"%slot1%\" is PHP {{session.slot1.price || '—'}}."
+  "The price for **{{entity.product}}** is PHP XX.XX (you can see exact prices on our site)."
 );
 
-// Coupon info
+// coupon.info
 manager.addAnswer(
   "en",
   "coupon.info",
-  "You can use code SAVE10 for 10% off your first order! 🏷️"
+  "You can use code **SAVE10** for 10% off your next order!"
 );
 
-// Products by category
+// products.byCategory
 manager.addAnswer(
   "en",
   "products.byCategory",
-  "Here are our {{entity.category}}: ..."
+  "Here are our **{{entity.category}}**: ..."
 );
 
-// ——————————————————————————
-// 3) Train & save the model
-// ——————————————————————————
+// fallback for any other utterance
+manager.addAnswer(
+  "en",
+  "None",
+  "Sorry, I didn’t quite catch that—can you rephrase?"
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3) Train & save
+// ─────────────────────────────────────────────────────────────────────────────
 (async () => {
   console.log("🔄 Training NLP model…");
   await manager.train();
 
-  // ensure output directory exists
   const dir = path.dirname(MODEL_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
