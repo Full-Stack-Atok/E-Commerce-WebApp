@@ -19,7 +19,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
     "node-nlp": "^5.0.0-alpha.5",
-    "stripe": "^18.1.0"
+    "stripe": "^18.1.0",
+    "xendit-node": "^6.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
