@@ -1,3 +1,4 @@
+// backend/controllers/chatbot.controller.js
 import Product from "../models/product.model.js";
 import Coupon from "../models/coupon.model.js";
 import { parseMessage } from "../nlp/bot-nlp.js";
@@ -11,13 +12,14 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // classify + get any static answer
+    // classify + get static answer
     const { intent, score, entities, answer } = await parseMessage(
       text,
       req.user?.name || ""
     );
+    console.log({ intent, score, entities, answer });
 
-    // 1) static replies: greeting, hours, location, bot.age
+    // 1) static replies
     if (
       ["greeting", "hours", "location", "bot.age"].includes(intent) &&
       answer
@@ -31,11 +33,6 @@ export const chatBot = async (req, res) => {
         .replace(/^how much is\s+/i, "")
         .replace(/^price of\s+/i, "")
         .trim();
-      if (!name) {
-        return res.json({
-          reply: "Sure—what product would you like the price for?",
-        });
-      }
       const product = await Product.findOne({
         name: new RegExp(`^${name}`, "i"),
       }).lean();
@@ -58,19 +55,36 @@ export const chatBot = async (req, res) => {
         userId: req.user._id,
         isActive: true,
       });
-      if (coupon) {
+      return res.json({
+        reply: coupon
+          ? `You have an active coupon: ${coupon.code} for ${coupon.discountPercentage}% off.`
+          : "You don't have any active coupons right now.",
+      });
+    }
+
+    // 4) **Generic product availability** if the NLP saw a “product” entity
+    const prodEnt = entities.find((e) => e.entity === "product");
+    if (prodEnt) {
+      const requested = prodEnt.resolution?.value || prodEnt.sourceText;
+      const found = await Product.findOne({
+        name: new RegExp(requested, "i"),
+        available: true,
+      }).lean();
+      if (found) {
         return res.json({
-          reply: `You have an active coupon: ${coupon.code} for ${coupon.discountPercentage}% off.`,
+          reply: `Yes—“${
+            found.name
+          }” is in stock at ₱${found.price.toLocaleString()}.`,
         });
       } else {
         return res.json({
-          reply: "You don't have any active coupons right now.",
+          reply: `Sorry, we don’t have “${requested}” available right now.`,
         });
       }
     }
 
-    // 4) products.list
-    if (score > 0.6 && intent === "products.list") {
+    // 5) products.list
+    if (intent === "products.list" && score > 0.6) {
       const prods = await Product.find({}).limit(5).lean();
       return res.json({
         reply: "Here are some products you might like:",
@@ -84,8 +98,8 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 5) products.byCategory
-    if (score > 0.6 && intent === "products.byCategory") {
+    // 6) products.byCategory
+    if (intent === "products.byCategory" && score > 0.6) {
       const catEnt = entities.find((e) => e.entity === "category");
       const category = catEnt?.resolution?.value || catEnt?.sourceText;
       if (!category) {
@@ -93,6 +107,7 @@ export const chatBot = async (req, res) => {
       }
       const matches = await Product.find({
         category: new RegExp(`^${category}$`, "i"),
+        available: true,
       })
         .limit(5)
         .lean();
@@ -114,19 +129,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 6) direct product lookup by name
-    const found = await Product.findOne({
-      name: new RegExp(text, "i"),
-    }).lean();
-    if (found) {
-      return res.json({
-        reply: `Yes, “${
-          found.name
-        }” is available for ₱${found.price.toLocaleString()}.`,
-      });
-    }
-
-    // 7) final fallback
+    // 7) fallback
     return res.json({
       reply:
         "Sorry, I didn’t understand that. I can help with products, pricing, coupons, store hours, or location.",
