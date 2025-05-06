@@ -2,7 +2,7 @@
 
 import { ArrowRight, CheckCircle, HandHeart } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom"; // import useLocation
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCartStore } from "../stores/useCartStore";
 import axios from "../lib/axios.js";
 import Confetti from "react-confetti";
@@ -14,51 +14,56 @@ const PurchaseSuccessPage = () => {
 
   const clearCart = useCartStore((s) => s.clearCart);
   const navigate = useNavigate();
-  const { search } = useLocation(); // get search from react-router
+  const { search } = useLocation(); // get query string
 
-  // Track viewport size
+  // Track viewport size for Confetti
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
   });
-
   useEffect(() => {
-    const onResize = () => {
-      setDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      });
-    };
+    const onResize = () =>
+      setDimensions({ width: window.innerWidth, height: window.innerHeight });
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
-    // parse session_id from URL search
-    const sessionId = new URLSearchParams(search).get("session_id");
-    if (!sessionId) {
-      setError("No session ID found in the URL");
+    const params = new URLSearchParams(search);
+    const sessionId = params.get("session_id");
+    const directId = params.get("orderId");
+    const isOffline = params.get("offline") === "true";
+
+    // OFFLINE FLOW: GCash / COD
+    if (isOffline && directId) {
+      setOrderId(directId);
+      clearCart();
       setIsProcessing(false);
       return;
     }
 
-    const finalize = async () => {
-      try {
-        const res = await axios.post("/payments/checkout-success", {
-          sessionId,
-        });
-        setOrderId(res.data.orderId);
-        clearCart();
-      } catch (err) {
-        console.error("Checkout success error:", err);
-        setError(err.response?.data?.message || err.message);
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    finalize();
-  }, [search, clearCart]); // include search
+    // STRIPE FLOW: must have session_id
+    if (sessionId) {
+      (async () => {
+        try {
+          const res = await axios.post("/payments/checkout-success", {
+            sessionId,
+          });
+          setOrderId(res.data.orderId);
+          clearCart();
+        } catch (err) {
+          console.error("Checkout success error:", err);
+          setError(err.response?.data?.message || err.message);
+        } finally {
+          setIsProcessing(false);
+        }
+      })();
+    } else {
+      // neither session nor offline
+      setError("No session ID or orderId found in the URL");
+      setIsProcessing(false);
+    }
+  }, [search, clearCart]);
 
   if (isProcessing) {
     return (
@@ -108,7 +113,9 @@ const PurchaseSuccessPage = () => {
             </h1>
             <p className="text-gray-300 mb-1">Thank you for your order.</p>
             <p className="text-gray-400 text-sm mb-6">
-              Check your email for order details and updates.
+              {directId
+                ? "Your order is confirmed and marked as paid."
+                : "Check your email for order details and updates."}
             </p>
 
             <div className="bg-gray-700 rounded-lg p-4 mb-6 text-left">
