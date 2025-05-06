@@ -4,14 +4,18 @@ import { protectRoute } from "../middleware/auth.middleware.js";
 import {
   createCheckoutSession,
   checkoutSuccess,
+  createPayPalOrder,
+  capturePayPalOrder,
 } from "../controllers/payment.controller.js";
 
 const router = express.Router();
 
-// Card, PayPal (via Stripe) & Cash-on-Delivery all hit the same endpoint:
+// Stripe Card + COD
 router.post("/create-checkout-session", protectRoute, createCheckoutSession);
-
-// Stripe success callback
 router.post("/checkout-success", protectRoute, checkoutSuccess);
+
+// PayPal native
+router.post("/create-paypal-order", protectRoute, createPayPalOrder);
+router.post("/capture-paypal-order", protectRoute, capturePayPalOrder);
 
 export default router;
