@@ -1,10 +1,8 @@
 // backend/lib/paypal.js
 import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
 import dotenv from "dotenv";
-
 dotenv.config();
 
-// Choose Sandbox vs Live
 const environment =
   process.env.PAYPAL_MODE === "live"
     ? new checkoutNodeJssdk.core.LiveEnvironment(
