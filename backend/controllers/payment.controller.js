@@ -16,12 +16,11 @@ export const createCheckoutSession = async (req, res) => {
     }
 
     // Calculate PHP total in centavos
-    let totalPhpCents = 0;
-    for (const p of products) {
-      const price = Number(p.price);
-      const quantity = Number(p.quantity) || 1;
-      totalPhpCents += Math.round(price * 100) * quantity;
-    }
+    let totalPhpCents = products.reduce((sum, p) => {
+      const price = Number(p.price) || 0;
+      const qty = Number(p.quantity) || 1;
+      return sum + Math.round(price * 100) * qty;
+    }, 0);
 
     // Apply coupon
     if (couponCode) {
@@ -35,10 +34,8 @@ export const createCheckoutSession = async (req, res) => {
           (totalPhpCents * coupon.discountPercentage) / 100
         );
         totalPhpCents -= discount;
-        await Coupon.findOneAndUpdate(
-          { code: couponCode, userId: req.user._id },
-          { isActive: false }
-        );
+        coupon.isActive = false;
+        await coupon.save();
       }
     }
 
@@ -75,12 +72,14 @@ export const createCheckoutSession = async (req, res) => {
 
     let stripeCouponId = null;
     if (couponCode) {
-      const { discountPercentage } = await Coupon.findOne({ code: couponCode });
-      const sc = await stripe.coupons.create({
-        percent_off: discountPercentage,
-        duration: "once",
-      });
-      stripeCouponId = sc.id;
+      const couponDoc = await Coupon.findOne({ code: couponCode });
+      if (couponDoc) {
+        const sc = await stripe.coupons.create({
+          percent_off: couponDoc.discountPercentage,
+          duration: "once",
+        });
+        stripeCouponId = sc.id;
+      }
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -92,7 +91,7 @@ export const createCheckoutSession = async (req, res) => {
       discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : [],
       metadata: {
         userId: req.user._id.toString(),
-        couponCode: couponCode || "",
+        coupon: couponCode || "",
         products: JSON.stringify(
           products.map((p) => ({
             id: p._id,
@@ -103,15 +102,15 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    // Auto-gift coupon
+    // Auto-gift coupon for big spenders
     if (totalPhpCents >= 20000) {
-      await Coupon.findOneAndDelete({ userId: req.user._id });
-      await new Coupon({
+      await Coupon.deleteMany({ userId: req.user._id, isActive: true });
+      await Coupon.create({
         code: `GIFT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
         discountPercentage: 10,
         expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         userId: req.user._id,
-      }).save();
+      });
     }
 
     return res.json({
@@ -136,10 +135,13 @@ export const createPayPalOrder = async (req, res) => {
   console.log("▶ createPayPalOrder body:", req.body);
   try {
     const { products, couponCode } = req.body;
-    let totalPhpCents = 0;
-    for (const p of products) {
-      totalPhpCents += Math.round(Number(p.price) * 100) * (p.quantity || 1);
-    }
+
+    let totalPhpCents = products.reduce((sum, p) => {
+      const price = Number(p.price) || 0;
+      const qty = Number(p.quantity) || 1;
+      return sum + Math.round(price * 100) * qty;
+    }, 0);
+
     if (couponCode) {
       const c = await Coupon.findOne({
         code: couponCode,
@@ -147,12 +149,12 @@ export const createPayPalOrder = async (req, res) => {
         isActive: true,
       });
       if (c) {
-        const d = Math.round((totalPhpCents * c.discountPercentage) / 100);
-        totalPhpCents -= d;
-        await Coupon.findOneAndUpdate(
-          { code: couponCode, userId: req.user._id },
-          { isActive: false }
+        const discount = Math.round(
+          (totalPhpCents * c.discountPercentage) / 100
         );
+        totalPhpCents -= discount;
+        c.isActive = false;
+        await c.save();
       }
     }
 
@@ -168,10 +170,6 @@ export const createPayPalOrder = async (req, res) => {
           },
         },
       ],
-      application_context: {
-        return_url: `${CLIENT_URL}/#/purchase-success?paypal=true`,
-        cancel_url: `${CLIENT_URL}/#/purchase-cancel`,
-      },
     });
 
     const { result } = await paypalClient.execute(request);
@@ -188,26 +186,34 @@ export const createPayPalOrder = async (req, res) => {
 export const capturePayPalOrder = async (req, res) => {
   try {
     const { orderID, products, couponCode } = req.body;
+
     const request = new checkoutNodeJssdk.orders.OrdersCaptureRequest(orderID);
     request.requestBody({});
     const { result } = await paypalClient.execute(request);
 
+    // deep-dive error log if it fails
     if (result.status !== "COMPLETED") {
+      console.error("✋ PayPal capture not completed:", result);
       return res.status(400).json({ message: "PayPal payment not completed" });
     }
 
-    // rebuild total and save order
-    let totalPhpCents = 0;
-    products.forEach((p) => {
-      totalPhpCents += Math.round(Number(p.price) * 100) * p.quantity;
-    });
+    // Recompute total and save order
+    let totalPhpCents = products.reduce((sum, p) => {
+      const price = Number(p.price) || 0;
+      return sum + Math.round(price * 100) * (p.quantity || 1);
+    }, 0);
+
     if (couponCode) {
       const c = await Coupon.findOne({
         code: couponCode,
         userId: req.user._id,
       });
-      const d = Math.round((totalPhpCents * c.discountPercentage) / 100);
-      totalPhpCents -= d;
+      if (c) {
+        const discount = Math.round(
+          (totalPhpCents * c.discountPercentage) / 100
+        );
+        totalPhpCents -= discount;
+      }
     }
 
     const order = await Order.create({
@@ -226,6 +232,9 @@ export const capturePayPalOrder = async (req, res) => {
     res.json({ success: true, orderId: order._id });
   } catch (err) {
     console.error("capturePayPalOrder error:", err);
+    if (err._originalError?.text) {
+      console.error("→ PayPal raw response:", err._originalError.text);
+    }
     res
       .status(500)
       .json({ message: "Failed to capture PayPal order", error: err.message });
