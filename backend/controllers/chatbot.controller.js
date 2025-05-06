@@ -6,17 +6,18 @@ export const chatBot = async (req, res) => {
   try {
     const text = (req.body.message || "").trim();
     if (!text) {
-      return res.json({ reply: "Please type something for me to respond to." });
+      return res.json({
+        reply: "Please type something for me to respond to.",
+      });
     }
 
-    // classify
+    // classify + get any static answer
     const { intent, score, entities, answer } = await parseMessage(
       text,
       req.user?.name || ""
     );
-    console.log({ intent, score, entities, answer });
 
-    // 1) Static intents
+    // 1) static replies: greeting, hours, location, bot.age
     if (
       ["greeting", "hours", "location", "bot.age"].includes(intent) &&
       answer
@@ -24,7 +25,7 @@ export const chatBot = async (req, res) => {
       return res.json({ reply: answer });
     }
 
-    // 2) Price query
+    // 2) price.query
     if (intent === "price.query") {
       const name = text
         .replace(/^how much is\s+/i, "")
@@ -51,7 +52,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 3) Coupon info
+    // 3) coupon.info
     if (intent === "coupon.info") {
       const coupon = await Coupon.findOne({
         userId: req.user._id,
@@ -68,7 +69,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 4) Top products
+    // 4) products.list
     if (score > 0.6 && intent === "products.list") {
       const prods = await Product.find({}).limit(5).lean();
       return res.json({
@@ -83,16 +84,18 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 5) Products by category (fixed intent name)
-    if (score > 0.6 && intent === "products.byCategory" && entities.length) {
-      const catEntity = entities.find((e) => e.entity === "category");
-      const category = catEntity?.option || catEntity?.sourceText;
+    // 5) products.byCategory
+    if (score > 0.6 && intent === "products.byCategory") {
+      const catEnt = entities.find((e) => e.entity === "category");
+      const category = catEnt?.resolution?.value || catEnt?.sourceText;
+      if (!category) {
+        return res.json({ reply: "Which category are you interested in?" });
+      }
       const matches = await Product.find({
-        category: new RegExp(category, "i"),
+        category: new RegExp(`^${category}$`, "i"),
       })
         .limit(5)
         .lean();
-
       if (matches.length) {
         return res.json({
           reply: `Here are our ${matches[0].category}:`,
@@ -111,17 +114,19 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 6) Fallback: direct product name lookup
+    // 6) direct product lookup by name
     const found = await Product.findOne({
       name: new RegExp(text, "i"),
     }).lean();
     if (found) {
       return res.json({
-        reply: `Yes, “${found.name}” is available for ₱${found.price}.`,
+        reply: `Yes, “${
+          found.name
+        }” is available for ₱${found.price.toLocaleString()}.`,
       });
     }
 
-    // 7) Final fallback
+    // 7) final fallback
     return res.json({
       reply:
         "Sorry, I didn’t understand that. I can help with products, pricing, coupons, store hours, or location.",
