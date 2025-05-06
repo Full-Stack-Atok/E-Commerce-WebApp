@@ -2,13 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rocket Bay</title>
 
-    <!-- ↓ ADD THIS: PayPal JS SDK -->
+    <!-- PayPal SDK; VITE_ env var injection -->
     <script
-      src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=PHP"
+      src="https://www.paypal.com/sdk/js?client-id=%VITE_PAYPAL_CLIENT_ID%&currency=PHP"
       data-sdk-integration-source="button-factory"
     ></script>
   </head>
