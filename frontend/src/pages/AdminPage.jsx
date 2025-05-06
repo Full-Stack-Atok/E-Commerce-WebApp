@@ -1,4 +1,3 @@
-// src/pages/AdminPage.jsx
 import React, { useState, useEffect, Suspense, lazy } from "react";
 import { PlusCircle, ShoppingBasket, BarChart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,7 +21,6 @@ export default function AdminPage() {
     fetchAllProducts();
   }, [fetchAllProducts]);
 
-  // simple fade settings
   const fadeProps = {
     initial: { opacity: 0 },
     animate: { opacity: 1 },
@@ -31,9 +29,9 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-12 space-y-8">
       <motion.h1
-        className="text-4xl font-bold text-center mb-8"
+        className="text-4xl font-bold text-center text-white"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
@@ -42,7 +40,7 @@ export default function AdminPage() {
       </motion.h1>
 
       {/* Tabs */}
-      <div role="tablist" className="flex justify-center space-x-4 mb-8">
+      <div role="tablist" className="flex justify-center space-x-4">
         {TABS.map(({ id, label, Icon }) => {
           const selected = activeTab === id;
           return (
@@ -56,7 +54,7 @@ export default function AdminPage() {
                 ${
                   selected
                     ? "border-b-2 border-sky-500 text-white"
-                    : "text-gray-300 hover:text-white"
+                    : "text-gray-400 hover:text-white"
                 }
               `}
             >
@@ -67,47 +65,34 @@ export default function AdminPage() {
         })}
       </div>
 
-      {/* Panels */}
-      <div className="relative min-h-[400px]">
-        <AnimatePresence initial={false} mode="sync">
-          {activeTab === "create" && (
-            <motion.div
-              key="create"
-              {...fadeProps}
-              className="absolute inset-0"
-              role="tabpanel"
-            >
-              <CreateProductForm />
-            </motion.div>
-          )}
+      {/* Panels: normal flow (no fixed height) */}
+      <AnimatePresence initial={false} mode="sync">
+        {activeTab === "create" && (
+          <motion.div key="create" {...fadeProps} role="tabpanel">
+            <CreateProductForm />
+          </motion.div>
+        )}
 
-          {activeTab === "products" && (
-            <motion.div
-              key="products"
-              {...fadeProps}
-              className="absolute inset-0"
-              role="tabpanel"
+        {activeTab === "products" && (
+          <motion.div key="products" {...fadeProps} role="tabpanel">
+            <Suspense
+              fallback={<p className="text-center text-gray-400">Loading…</p>}
             >
-              <Suspense fallback={<p className="text-center">Loading…</p>}>
-                <ProductList />
-              </Suspense>
-            </motion.div>
-          )}
+              <ProductList />
+            </Suspense>
+          </motion.div>
+        )}
 
-          {activeTab === "analytics" && (
-            <motion.div
-              key="analytics"
-              {...fadeProps}
-              className="absolute inset-0"
-              role="tabpanel"
+        {activeTab === "analytics" && (
+          <motion.div key="analytics" {...fadeProps} role="tabpanel">
+            <Suspense
+              fallback={<p className="text-center text-gray-400">Loading…</p>}
             >
-              <Suspense fallback={<p className="text-center">Loading…</p>}>
-                <AnalyticsTab />
-              </Suspense>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <AnalyticsTab />
+            </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
