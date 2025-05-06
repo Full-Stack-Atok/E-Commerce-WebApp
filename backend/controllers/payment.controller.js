@@ -2,7 +2,7 @@
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
-import { EWallet } from "../lib/xendit.js";
+import { ewalletClient } from "../lib/xendit.js";
 
 const CLIENT_URL = process.env.CLIENT_URL;
 const FRONTEND_URL = process.env.FRONTEND_URL;
@@ -71,7 +71,7 @@ export const createCheckoutSession = async (req, res) => {
       await order.save();
 
       // create sandbox GCash charge
-      const charge = await EWallet.create({
+      const charge = await ewalletClient.create({
         referenceID: order._id.toString(),
         currency: "PHP",
         amount: totalAmount,
