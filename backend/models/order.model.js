@@ -1,3 +1,5 @@
+// backend/models/order.model.js
+
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
@@ -25,7 +27,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["card", "gcash", "cod"],
+      enum: ["card", "gcash", "cod", "paypal"],
       default: "card",
     },
     paymentStatus: {
@@ -33,7 +35,6 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "cancelled"],
       default: "pending",
     },
-    // unique index stays
     stripeSessionId: {
       type: String,
       unique: true,

@@ -1,5 +1,3 @@
-// src/components/PurchaseSuccessPage.jsx
-
 import { ArrowRight, CheckCircle, HandHeart } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -12,27 +10,26 @@ const PurchaseSuccessPage = () => {
   const navigate = useNavigate();
   const { search } = useLocation();
 
-  // 1) Pull these out before anything else
+  // pull URL params once
   const params = new URLSearchParams(search);
-  const sessionId = params.get("session_id"); // stripe
-  const urlOrderId = params.get("orderId"); // cod/paypal
-  const isOffline = params.get("offline") === "true"; // flag
+  const sessionId = params.get("session_id"); // Stripe
+  const urlOrderId = params.get("orderId"); // COD or PayPal
+  const isOffline = params.get("offline") === "true";
 
-  // 2) Local UI state
+  // state
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState(null);
-  const [orderId, setOrderId] = useState(isOffline ? urlOrderId : null);
+  const [orderId, setOrderId] = useState(urlOrderId || null);
 
-  // 3) Handle clearing cart & fetching Stripe order
   useEffect(() => {
-    // COD / offline
-    if (isOffline && urlOrderId) {
+    // 1) If we have ANY orderId (PayPal or COD), treat it as success:
+    if (urlOrderId) {
       clearCart();
       setIsProcessing(false);
       return;
     }
 
-    // Stripe
+    // 2) Otherwise, if Stripe flow:
     if (sessionId) {
       (async () => {
         try {
@@ -49,13 +46,12 @@ const PurchaseSuccessPage = () => {
         }
       })();
     } else {
-      // nothing to capture
+      // neither Stripe nor PayPal/COD
       setError("No session_id or orderId found in URL");
       setIsProcessing(false);
     }
-  }, [sessionId, urlOrderId, isOffline, clearCart]);
+  }, [sessionId, urlOrderId, clearCart]);
 
-  // 4) Render
   if (isProcessing) {
     return (
       <div className="h-screen flex items-center justify-center text-white">
@@ -104,9 +100,7 @@ const PurchaseSuccessPage = () => {
             </h1>
             <p className="text-gray-300 mb-1">Thank you for your order.</p>
             <p className="text-gray-400 text-sm mb-6">
-              {isOffline
-                ? "Your order is confirmed and marked as paid."
-                : "Check your email for order details and updates."}
+              Your order is confirmed and marked as paid.
             </p>
 
             <div className="bg-gray-700 rounded-lg p-4 mb-6 text-left">
