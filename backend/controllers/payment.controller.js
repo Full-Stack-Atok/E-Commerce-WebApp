@@ -125,14 +125,13 @@ export const createCheckoutSession = async (req, res) => {
   }
 };
 
-// 2) Capture Stripe payment or finalize COD
+// 2) (Your existing Stripe‐capture or COD finalization logic…)
 export const checkoutSuccess = async (req, res) => {
-  // …your existing Stripe finalize code…
+  // …
 };
 
 // 3) PayPal: create order
 export const createPayPalOrder = async (req, res) => {
-  console.log("▶ createPayPalOrder body:", req.body);
   try {
     const { products, couponCode } = req.body;
 
@@ -191,16 +190,16 @@ export const capturePayPalOrder = async (req, res) => {
     request.requestBody({});
     const { result } = await paypalClient.execute(request);
 
-    // deep-dive error log if it fails
     if (result.status !== "COMPLETED") {
       console.error("✋ PayPal capture not completed:", result);
       return res.status(400).json({ message: "PayPal payment not completed" });
     }
 
-    // Recompute total and save order
+    // Recompute total
     let totalPhpCents = products.reduce((sum, p) => {
       const price = Number(p.price) || 0;
-      return sum + Math.round(price * 100) * (p.quantity || 1);
+      const qty = Number(p.quantity) || 1;
+      return sum + Math.round(price * 100) * qty;
     }, 0);
 
     if (couponCode) {
@@ -216,6 +215,7 @@ export const capturePayPalOrder = async (req, res) => {
       }
     }
 
+    // **Do not include `stripeSessionId` here**—omit it entirely
     const order = await Order.create({
       user: req.user._id,
       products: products.map((p) => ({
@@ -226,7 +226,7 @@ export const capturePayPalOrder = async (req, res) => {
       totalAmount: totalPhpCents / 100,
       paymentMethod: "paypal",
       paymentStatus: "paid",
-      stripeSessionId: null,
+      // ← stripeSessionId: null  (removed)
     });
 
     res.json({ success: true, orderId: order._id });
