@@ -10,12 +10,11 @@ const FRONTEND_URL = process.env.FRONTEND_URL;
 export const createCheckoutSession = async (req, res) => {
   try {
     const { products, couponCode, paymentMethod, phone } = req.body;
-
-    if (!Array.isArray(products) || products.length === 0) {
+    if (!Array.isArray(products) || !products.length) {
       return res.status(400).json({ error: "Invalid or empty products array" });
     }
 
-    // 1) Calculate total (in centavos)
+    // 1) total (centavos)
     let totalAmount = 0;
     products.forEach((p) => {
       const price = Number(p.price);
@@ -26,7 +25,7 @@ export const createCheckoutSession = async (req, res) => {
       totalAmount += Math.round(price * 100) * quantity;
     });
 
-    // 2) Apply coupon (once)
+    // 2) apply coupon
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode,
@@ -45,7 +44,7 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // 3A) GCash via Xendit
+    // 3A) GCash
     if (paymentMethod === "gcash") {
       if (!phone) {
         return res
@@ -53,8 +52,8 @@ export const createCheckoutSession = async (req, res) => {
           .json({ error: "Phone number required for GCash" });
       }
 
-      // create a pending order (no stripeSessionId field)
-      const order = await Order.create({
+      // create pending order
+      let order = await Order.create({
         user: req.user._id,
         products: products.map((p) => ({
           product: p._id,
@@ -66,7 +65,11 @@ export const createCheckoutSession = async (req, res) => {
         paymentStatus: "pending",
       });
 
-      // charge on Xendit sandbox
+      // hack: use order._id as stripeSessionId so it’s unique
+      order.stripeSessionId = order._id.toString();
+      await order.save();
+
+      // create Xendit charge
       const charge = await EWallet.create({
         referenceID: order._id.toString(),
         currency: "PHP",
@@ -84,9 +87,9 @@ export const createCheckoutSession = async (req, res) => {
         .json({ checkoutUrl: charge.actions.mobile_web_checkout_url });
     }
 
-    // 3B) Cash on Delivery (no external API)
+    // 3B) Cash on Delivery
     if (paymentMethod === "cod") {
-      const newOrder = await Order.create({
+      let newOrder = await Order.create({
         user: req.user._id,
         products: products.map((p) => ({
           product: p._id,
@@ -97,6 +100,10 @@ export const createCheckoutSession = async (req, res) => {
         paymentMethod: "cod",
         paymentStatus: "paid",
       });
+
+      // again, assign stripeSessionId = unique order ID
+      newOrder.stripeSessionId = newOrder._id.toString();
+      await newOrder.save();
 
       return res.status(200).json({
         offline: true,
@@ -162,7 +169,6 @@ export const checkoutSuccess = async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status === "paid") {
-      // deactivate coupon
       if (session.metadata.couponCode) {
         await Coupon.findOneAndUpdate(
           {
@@ -172,7 +178,7 @@ export const checkoutSuccess = async (req, res) => {
           { isActive: false }
         );
       }
-      // save paid order
+
       const items = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
@@ -189,7 +195,6 @@ export const checkoutSuccess = async (req, res) => {
       await newOrder.save();
       return res.status(200).json({ success: true, orderId: newOrder._id });
     }
-
     return res.status(400).json({ message: "Payment not completed" });
   } catch (error) {
     console.error("Error finalizing checkout:", error);

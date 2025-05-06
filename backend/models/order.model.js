@@ -1,4 +1,3 @@
-// backend/models/order.model.js
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
@@ -34,11 +33,11 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "cancelled"],
       default: "pending",
     },
+    // unique index stays
     stripeSessionId: {
       type: String,
-      default: null, // make sure offline orders get null
       unique: true,
-      sparse: true, // allow multiple nulls
+      sparse: true,
     },
   },
   { timestamps: true }
