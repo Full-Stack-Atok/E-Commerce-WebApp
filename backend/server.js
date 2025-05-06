@@ -1,8 +1,9 @@
+// backend/server.js  (or wherever you bootstrap Express)
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-
+import mongoose from "mongoose";
 import authRoutes from "./routes/auth.route.js";
 import productRoutes from "./routes/product.route.js";
 import cartRoutes from "./routes/cart.route.js";
@@ -11,6 +12,7 @@ import paymentRoutes from "./routes/payment.route.js";
 import analyticsRoutes from "./routes/analytics.route.js";
 import chatbotRoute from "./routes/chatbot.route.js";
 import { connectDB } from "./lib/db.js";
+import Order from "./models/order.model.js"; // <<— for syncIndexes
 
 dotenv.config();
 const app = express();
@@ -48,7 +50,15 @@ app.use("/api/chatbot", chatbotRoute);
 
 // Start server
 connectDB()
-  .then(() => {
+  .then(async () => {
+    // THIS is the magic that syncs your indexes to match your schema.
+    try {
+      await Order.syncIndexes();
+      console.log("✅ Order indexes synced to schema (sparse stripeSessionId)");
+    } catch (err) {
+      console.error("❌ Failed to sync Order indexes:", err);
+    }
+
     app.listen(PORT, () => {
       console.log(`🚀 Server listening on port ${PORT}`);
     });
