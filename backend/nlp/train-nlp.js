@@ -1,4 +1,3 @@
-// backend/nlp/train-nlp.js
 import { NlpManager } from "node-nlp";
 import fs from "fs";
 import path from "path";
@@ -12,7 +11,7 @@ const MODEL_FILE = path.resolve(__dirname, "../model.nlp");
 const manager = new NlpManager({ languages: ["en"], forceNER: true });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 0) Define your named‐entities first
+// 0) Named entities FIRST
 // ─────────────────────────────────────────────────────────────────────────────
 const categories = [
   "Jeans",
@@ -24,7 +23,6 @@ const categories = [
   "Bags",
   "Gadgets",
 ];
-
 manager.addNamedEntityText(
   "category",
   "category",
@@ -42,7 +40,7 @@ manager.addNamedEntityText(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1) Training phrases (addDocument)
+// 1) Training phrases
 // ─────────────────────────────────────────────────────────────────────────────
 // BOT AGE
 manager.addDocument("en", "how old are you", "bot.age");
@@ -90,7 +88,7 @@ manager.addDocument("en", "what %category% do you have", "products.byCategory");
 manager.addDocument("en", "do you sell %category%", "products.byCategory");
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2) Static replies (addAnswer)
+// 2) Static replies
 // ─────────────────────────────────────────────────────────────────────────────
 // bot.age
 manager.addAnswer(
@@ -151,7 +149,7 @@ manager.addAnswer(
   "Here are our **{{entity.category}}**: ..."
 );
 
-// fallback for any other utterance
+// fallback for anything else
 manager.addAnswer(
   "en",
   "None",

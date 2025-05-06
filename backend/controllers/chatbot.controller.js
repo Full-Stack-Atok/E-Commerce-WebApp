@@ -1,4 +1,3 @@
-// backend/controllers/chatbot.controller.js
 import Product from "../models/product.model.js";
 import Coupon from "../models/coupon.model.js";
 import { parseMessage } from "../nlp/bot-nlp.js";
@@ -10,27 +9,23 @@ export const chatBot = async (req, res) => {
       return res.json({ reply: "Please type something for me to respond to." });
     }
 
-    // 1) Classify & inject user name
+    // classify
     const { intent, score, entities, answer } = await parseMessage(
       text,
       req.user?.name || ""
     );
+    console.log({ intent, score, entities, answer });
 
-    // 2) Handle static intents first
-    if (intent === "greeting" && answer) {
-      return res.json({ reply: answer });
-    }
-    if (intent === "hours" && answer) {
-      return res.json({ reply: answer });
-    }
-    if (intent === "location" && answer) {
+    // 1) Static intents
+    if (
+      ["greeting", "hours", "location", "bot.age"].includes(intent) &&
+      answer
+    ) {
       return res.json({ reply: answer });
     }
 
-    // 3) Dynamic intents
-    // 3a) Price query: extract product name and look up price
+    // 2) Price query
     if (intent === "price.query") {
-      // naive extraction: remove leading “how much is” or “price of”
       const name = text
         .replace(/^how much is\s+/i, "")
         .replace(/^price of\s+/i, "")
@@ -56,7 +51,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 3b) Coupon info: fetch active coupon for this user
+    // 3) Coupon info
     if (intent === "coupon.info") {
       const coupon = await Coupon.findOne({
         userId: req.user._id,
@@ -73,7 +68,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 4) Product listing / filtering
+    // 4) Top products
     if (score > 0.6 && intent === "products.list") {
       const prods = await Product.find({}).limit(5).lean();
       return res.json({
@@ -87,16 +82,20 @@ export const chatBot = async (req, res) => {
         })),
       });
     }
-    if (score > 0.6 && intent === "products.filter" && entities.length) {
-      const cat = entities[0].option || entities[0].sourceText;
+
+    // 5) Products by category (fixed intent name)
+    if (score > 0.6 && intent === "products.byCategory" && entities.length) {
+      const catEntity = entities.find((e) => e.entity === "category");
+      const category = catEntity?.option || catEntity?.sourceText;
       const matches = await Product.find({
-        category: new RegExp(cat, "i"),
+        category: new RegExp(category, "i"),
       })
         .limit(5)
         .lean();
+
       if (matches.length) {
         return res.json({
-          reply: `Products in “${matches[0].category}”:`,
+          reply: `Here are our ${matches[0].category}:`,
           products: matches.map((p) => ({
             _id: p._id,
             name: p.name,
@@ -105,10 +104,14 @@ export const chatBot = async (req, res) => {
             category: p.category,
           })),
         });
+      } else {
+        return res.json({
+          reply: `Sorry, we don't have any items in “${category}” right now.`,
+        });
       }
     }
 
-    // 5) Fallback: specific product name lookup
+    // 6) Fallback: direct product name lookup
     const found = await Product.findOne({
       name: new RegExp(text, "i"),
     }).lean();
@@ -118,13 +121,13 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 6) Final fallback: updated suggestions
+    // 7) Final fallback
     return res.json({
       reply:
         "Sorry, I didn’t understand that. I can help with products, pricing, coupons, store hours, or location.",
     });
   } catch (err) {
     console.error("Chatbot error:", err);
-    res.status(500).json({ reply: "Oops, something went wrong." });
+    return res.status(500).json({ reply: "Oops, something went wrong." });
   }
 };
