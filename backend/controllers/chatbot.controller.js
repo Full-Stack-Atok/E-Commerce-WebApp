@@ -12,14 +12,14 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // classify + get static answer
+    // classify + get any static answer
     const { intent, score, entities, answer } = await parseMessage(
       text,
       req.user?.name || ""
     );
     console.log({ intent, score, entities, answer });
 
-    // 1) static replies
+    // 1) Static replies
     if (
       ["greeting", "hours", "location", "bot.age"].includes(intent) &&
       answer
@@ -27,15 +27,37 @@ export const chatBot = async (req, res) => {
       return res.json({ reply: answer });
     }
 
-    // 2) price.query
+    // Helper: normalize a captured product name
+    const normalizeName = (raw) => {
+      return (
+        raw
+          .trim()
+          // remove leading article "a " or "an "
+          .replace(/^(a|an)\s+/i, "")
+          // remove trailing punctuation
+          .replace(/[?!.]$/g, "")
+          .trim()
+      );
+    };
+
+    // 2) Price query
     if (intent === "price.query") {
-      const name = text
+      let name = text
         .replace(/^how much is\s+/i, "")
         .replace(/^price of\s+/i, "")
         .trim();
+      name = normalizeName(name);
+
+      if (!name) {
+        return res.json({
+          reply: "Sure—what product would you like the price for?",
+        });
+      }
+
       const product = await Product.findOne({
         name: new RegExp(`^${name}`, "i"),
       }).lean();
+
       if (product) {
         return res.json({
           reply: `The price of ${
@@ -49,7 +71,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 3) coupon.info
+    // 3) Coupon info
     if (intent === "coupon.info") {
       const coupon = await Coupon.findOne({
         userId: req.user._id,
@@ -62,10 +84,11 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 4) **Generic product availability** if the NLP saw a “product” entity
+    // 4) Generic product availability if NER spotted a product entity
     const prodEnt = entities.find((e) => e.entity === "product");
     if (prodEnt) {
-      const requested = prodEnt.resolution?.value || prodEnt.sourceText;
+      const raw = prodEnt.resolution?.value || prodEnt.sourceText;
+      const requested = normalizeName(raw);
       const found = await Product.findOne({
         name: new RegExp(requested, "i"),
         available: true,
@@ -83,7 +106,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 5) products.list
+    // 5) Top products list
     if (intent === "products.list" && score > 0.6) {
       const prods = await Product.find({}).limit(5).lean();
       return res.json({
@@ -98,7 +121,7 @@ export const chatBot = async (req, res) => {
       });
     }
 
-    // 6) products.byCategory
+    // 6) Products by category
     if (intent === "products.byCategory" && score > 0.6) {
       const catEnt = entities.find((e) => e.entity === "category");
       const category = catEnt?.resolution?.value || catEnt?.sourceText;
@@ -129,7 +152,7 @@ export const chatBot = async (req, res) => {
       }
     }
 
-    // 7) fallback
+    // 7) Final fallback
     return res.json({
       reply:
         "Sorry, I didn’t understand that. I can help with products, pricing, coupons, store hours, or location.",
