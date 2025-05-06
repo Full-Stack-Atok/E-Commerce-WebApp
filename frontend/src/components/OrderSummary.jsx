@@ -13,16 +13,13 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
 });
 
 export default function OrderSummary() {
-  // Cart & coupon
   const cart = useCartStore((s) => s.cart);
   const coupon = useCartStore((s) => s.coupon);
   const isCouponApplied = useCartStore((s) => s.isCouponApplied);
   const total = useCartStore((s) => s.total);
   const calculateTotals = useCartStore((s) => s.calculateTotals);
 
-  // UI state
-  const [paymentMethod, setPaymentMethod] = useState("card"); // card|gcash|cod
-  const [phone, setPhone] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("card"); // "card" | "paypal" | "cod"
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,12 +32,6 @@ export default function OrderSummary() {
   const handlePayment = useCallback(async () => {
     setLoading(true);
 
-    if (paymentMethod === "gcash" && !phone) {
-      toast.error("Please enter your GCash number");
-      setLoading(false);
-      return;
-    }
-
     try {
       const payload = {
         products: cart.map((item) => ({
@@ -51,7 +42,6 @@ export default function OrderSummary() {
           quantity: item.quantity,
         })),
         paymentMethod,
-        ...(paymentMethod === "gcash" ? { phone } : {}),
         ...(isCouponApplied && coupon?.code ? { couponCode: coupon.code } : {}),
       };
 
@@ -60,16 +50,16 @@ export default function OrderSummary() {
         payload
       );
 
-      // offline path (GCash or COD)
       if (data.offline) {
         toast.success("Order placed! 🎉");
         window.location.href = `/#/purchase-success?orderId=${data.orderId}&offline=true`;
         return;
       }
 
-      // Stripe card path
       const stripe = await stripePromise;
-      const { error } = await stripe.redirectToCheckout({ sessionId: data.id });
+      const { error } = await stripe.redirectToCheckout({
+        sessionId: data.id,
+      });
       if (error) toast.error(error.message);
     } catch (err) {
       console.error("Checkout API error:", err.response?.data || err.message);
@@ -77,7 +67,7 @@ export default function OrderSummary() {
     } finally {
       setLoading(false);
     }
-  }, [cart, coupon, isCouponApplied, paymentMethod, phone]);
+  }, [cart, coupon, isCouponApplied, paymentMethod]);
 
   return (
     <motion.div
@@ -88,11 +78,11 @@ export default function OrderSummary() {
     >
       <p className="text-xl font-semibold text-white">Order Summary</p>
 
-      {/* Payment Method */}
+      {/* Payment Method Choices */}
       <div className="space-y-2 text-gray-300">
         {[
           { value: "card", label: "Credit / Debit Card" },
-          { value: "gcash", label: "GCash" },
+          { value: "paypal", label: "PayPal" },
           { value: "cod", label: "Cash on Delivery" },
         ].map((opt) => (
           <label key={opt.value} className="flex items-center gap-2">
@@ -107,22 +97,6 @@ export default function OrderSummary() {
           </label>
         ))}
       </div>
-
-      {/* GCash Number */}
-      {paymentMethod === "gcash" && (
-        <div className="mb-4">
-          <label className="block mb-1 text-sm text-gray-300">
-            GCash Number
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="09XXXXXXXXX"
-            className="w-full px-3 py-2 rounded bg-gray-700 text-white placeholder-gray-500"
-          />
-        </div>
-      )}
 
       {/* Price Breakdown */}
       <div className="space-y-2 text-gray-300">
