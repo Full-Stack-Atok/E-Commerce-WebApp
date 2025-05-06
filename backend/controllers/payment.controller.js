@@ -2,7 +2,7 @@
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
-import { ewalletClient } from "../lib/xendit.js";
+import { ewallet } from "../lib/xendit.js";
 
 const CLIENT_URL = process.env.CLIENT_URL;
 const FRONTEND_URL = process.env.FRONTEND_URL;
@@ -10,23 +10,22 @@ const FRONTEND_URL = process.env.FRONTEND_URL;
 export const createCheckoutSession = async (req, res) => {
   try {
     const { products, couponCode, paymentMethod, phone } = req.body;
-
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ error: "Invalid or empty products array" });
     }
 
     // 1) Calculate total in centavos
     let totalAmount = 0;
-    products.forEach((p) => {
+    for (const p of products) {
       const price = Number(p.price);
       const quantity = Number(p.quantity) || 1;
       if (isNaN(price) || price <= 0) {
         throw new Error(`Invalid price for product "${p.name}"`);
       }
       totalAmount += Math.round(price * 100) * quantity;
-    });
+    }
 
-    // 2) Apply coupon if provided
+    // 2) Apply coupon if any
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode,
@@ -53,7 +52,7 @@ export const createCheckoutSession = async (req, res) => {
           .json({ error: "Phone number required for GCash" });
       }
 
-      // create a pending order (NO stripeSessionId here)
+      // create order (pending) without stripeSessionId
       let order = await Order.create({
         user: req.user._id,
         products: products.map((p) => ({
@@ -66,19 +65,23 @@ export const createCheckoutSession = async (req, res) => {
         paymentStatus: "pending",
       });
 
-      // HACK: assign a unique stripeSessionId so it doesn't collide
+      // assign a unique stripeSessionId to avoid null collisions
       order.stripeSessionId = order._id.toString();
       await order.save();
 
       // create sandbox GCash charge
-      const charge = await ewalletClient.create({
+      const charge = await ewallet.createEWalletCharge({
         referenceID: order._id.toString(),
         currency: "PHP",
         amount: totalAmount,
         checkoutMethod: "ONE_TIME_PAYMENT",
         channelCode: "GCASH",
-        phone,
-        metadata: { orderId: order._id.toString() },
+        channelProperties: {
+          mobileNumber: phone,
+        },
+        metadata: {
+          orderId: order._id.toString(),
+        },
         callbackURL: `${CLIENT_URL}/api/payments/gcash/callback`,
         redirectURL: `${FRONTEND_URL}/#/purchase-success?orderId=${order._id}&offline=true`,
       });
@@ -102,7 +105,7 @@ export const createCheckoutSession = async (req, res) => {
         paymentStatus: "paid",
       });
 
-      // HACK: assign a unique stripeSessionId so it doesn't collide
+      // assign unique stripeSessionId
       order.stripeSessionId = order._id.toString();
       await order.save();
 
@@ -158,13 +161,13 @@ export const createCheckoutSession = async (req, res) => {
       .json({ id: session.id, totalAmount: totalAmount / 100 });
   } catch (error) {
     console.error("Error processing checkout:", error);
-    return res
-      .status(500)
-      .json({ message: "Error processing checkout", error: error.message });
+    return res.status(500).json({
+      message: "Error processing checkout",
+      error: error.message,
+    });
   }
 };
 
-// finalize Stripe card payments
 export const checkoutSuccess = async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -200,13 +203,13 @@ export const checkoutSuccess = async (req, res) => {
     return res.status(400).json({ message: "Payment not completed" });
   } catch (error) {
     console.error("Error finalizing checkout:", error);
-    return res
-      .status(500)
-      .json({ message: "Error finalizing checkout", error: error.message });
+    return res.status(500).json({
+      message: "Error finalizing checkout",
+      error: error.message,
+    });
   }
 };
 
-// Xendit webhook for GCash success
 export const handleGCashCallback = async (req, res) => {
   try {
     const evt = req.body;
