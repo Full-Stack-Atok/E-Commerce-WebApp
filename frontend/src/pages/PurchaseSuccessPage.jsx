@@ -8,48 +8,38 @@ import axios from "../lib/axios.js";
 import Confetti from "react-confetti";
 
 const PurchaseSuccessPage = () => {
-  const [isProcessing, setIsProcessing] = useState(true);
-  const [error, setError] = useState(null);
-  const [orderId, setOrderId] = useState(null);
-
   const clearCart = useCartStore((s) => s.clearCart);
   const navigate = useNavigate();
-  const { search } = useLocation(); // get query string
+  const { search } = useLocation();
 
-  // Track viewport size for Confetti
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  });
+  // 1) Pull these out before anything else
+  const params = new URLSearchParams(search);
+  const sessionId = params.get("session_id"); // stripe
+  const urlOrderId = params.get("orderId"); // cod/paypal
+  const isOffline = params.get("offline") === "true"; // flag
+
+  // 2) Local UI state
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [error, setError] = useState(null);
+  const [orderId, setOrderId] = useState(isOffline ? urlOrderId : null);
+
+  // 3) Handle clearing cart & fetching Stripe order
   useEffect(() => {
-    const onResize = () =>
-      setDimensions({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(search);
-    const sessionId = params.get("session_id");
-    const directId = params.get("orderId");
-    const isOffline = params.get("offline") === "true";
-
-    // OFFLINE FLOW: GCash / COD
-    if (isOffline && directId) {
-      setOrderId(directId);
+    // COD / offline
+    if (isOffline && urlOrderId) {
       clearCart();
       setIsProcessing(false);
       return;
     }
 
-    // STRIPE FLOW: must have session_id
+    // Stripe
     if (sessionId) {
       (async () => {
         try {
-          const res = await axios.post("/payments/checkout-success", {
+          const { data } = await axios.post("/payments/checkout-success", {
             sessionId,
           });
-          setOrderId(res.data.orderId);
+          setOrderId(data.orderId);
           clearCart();
         } catch (err) {
           console.error("Checkout success error:", err);
@@ -59,12 +49,13 @@ const PurchaseSuccessPage = () => {
         }
       })();
     } else {
-      // neither session nor offline
-      setError("No session ID or orderId found in the URL");
+      // nothing to capture
+      setError("No session_id or orderId found in URL");
       setIsProcessing(false);
     }
-  }, [search, clearCart]);
+  }, [sessionId, urlOrderId, isOffline, clearCart]);
 
+  // 4) Render
   if (isProcessing) {
     return (
       <div className="h-screen flex items-center justify-center text-white">
@@ -90,8 +81,8 @@ const PurchaseSuccessPage = () => {
   return (
     <>
       <Confetti
-        width={dimensions.width}
-        height={dimensions.height}
+        width={window.innerWidth}
+        height={window.innerHeight}
         gravity={0.1}
         numberOfPieces={500}
         recycle={false}
@@ -113,7 +104,7 @@ const PurchaseSuccessPage = () => {
             </h1>
             <p className="text-gray-300 mb-1">Thank you for your order.</p>
             <p className="text-gray-400 text-sm mb-6">
-              {directId
+              {isOffline
                 ? "Your order is confirmed and marked as paid."
                 : "Check your email for order details and updates."}
             </p>
