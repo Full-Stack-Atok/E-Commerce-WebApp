@@ -1,121 +1,109 @@
 // src/components/ProductList.jsx
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useCallback, useMemo } from "react";
+import { FixedSizeList as List } from "react-window";
 import { Trash, Star } from "lucide-react";
 import { useProductStore } from "../stores/useProductStore";
 
-const rowVariants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: { opacity: 1, y: 0 },
-};
+const ROW_HEIGHT = 60; // px
 
-const ProductList = () => {
-  const { deleteProduct, toggleFeaturedProduct, products } = useProductStore();
+export default function ProductList() {
+  const { products, deleteProduct, toggleFeaturedProduct } = useProductStore();
+
+  // wrap callbacks so we don't re-create on every render
+  const handleDelete = useCallback((id) => deleteProduct(id), [deleteProduct]);
+  const handleToggle = useCallback(
+    (id) => toggleFeaturedProduct(id),
+    [toggleFeaturedProduct]
+  );
+
+  // row renderer for react-window
+  const Row = useCallback(
+    ({ index, style }) => {
+      const product = products[index];
+      const bg = index % 2 ? "bg-gray-900" : "bg-gray-800";
+
+      return (
+        <div style={style} className={`${bg} flex items-center px-4`}>
+          {/* Product */}
+          <div className="flex-1 flex items-center">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+            />
+            <span className="ml-3 text-sm font-medium text-white">
+              {product.name}
+            </span>
+          </div>
+
+          {/* Price */}
+          <div className="w-24 text-right">
+            <span className="text-sm text-gray-300">
+              ₱{product.price.toFixed(2)}
+            </span>
+          </div>
+
+          {/* Category */}
+          <div className="w-28 text-sm text-gray-300 text-center">
+            {product.category}
+          </div>
+
+          {/* Featured */}
+          <div className="w-20 flex justify-center">
+            <button
+              onClick={() => handleToggle(product._id)}
+              aria-label={
+                product.isFeatured ? "Unmark as featured" : "Mark as featured"
+              }
+              className={`p-1 rounded-full transition ${
+                product.isFeatured
+                  ? "bg-yellow-400 text-gray-900"
+                  : "bg-gray-600 text-gray-300"
+              }`}
+            >
+              <Star className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Delete */}
+          <div className="w-20 flex justify-center">
+            <button
+              onClick={() => handleDelete(product._id)}
+              aria-label="Delete product"
+              className="p-1 rounded-full text-red-400 hover:text-red-300"
+            >
+              <Trash className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      );
+    },
+    [products, handleDelete, handleToggle]
+  );
+
+  // memoize item count so List only re-measures when products change
+  const itemCount = useMemo(() => products.length, [products]);
 
   return (
-    <motion.div
-      className="bg-gray-800 shadow-md rounded-lg max-w-6xl mx-auto overflow-x-auto"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-    >
-      {/* Scrollable body with sticky header */}
-      <div className="max-h-[70vh] overflow-y-auto">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-700 sticky top-0 z-10">
-            <tr>
-              {["Product", "Price", "Category", "Featured", "Actions"].map(
-                (label) => (
-                  <th
-                    key={label}
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-300 uppercase tracking-wide"
-                  >
-                    {label}
-                  </th>
-                )
-              )}
-            </tr>
-          </thead>
-
-          <motion.tbody
-            className="bg-gray-800 divide-y divide-gray-700"
-            initial="hidden"
-            animate="visible"
-            variants={{ visible: { transition: { staggerChildren: 0.04 } } }}
-          >
-            {products.map((product, i) => (
-              <motion.tr
-                key={product._id}
-                className={`${
-                  i % 2 === 0 ? "bg-gray-800" : "bg-gray-900"
-                } hover:bg-gray-700 transition-colors`}
-                variants={rowVariants}
-              >
-                {/* Product Cell */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-10 w-10 rounded-full object-cover flex-shrink-0"
-                    />
-                    <span className="ml-4 text-sm font-medium text-white">
-                      {product.name}
-                    </span>
-                  </div>
-                </td>
-
-                {/* Price */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-300">
-                    ₱{product.price.toFixed(2)}
-                  </span>
-                </td>
-
-                {/* Category */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="text-sm text-gray-300">
-                    {product.category}
-                  </span>
-                </td>
-
-                {/* Featured Toggle */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={() => toggleFeaturedProduct(product._id)}
-                    aria-label={
-                      product.isFeatured
-                        ? "Unmark as featured"
-                        : "Mark as featured"
-                    }
-                    className={`p-1 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-                      product.isFeatured
-                        ? "bg-yellow-400 text-gray-900 hover:bg-yellow-500"
-                        : "bg-gray-600 text-gray-300 hover:bg-gray-500"
-                    }`}
-                  >
-                    <Star className="h-5 w-5" />
-                  </button>
-                </td>
-
-                {/* Delete Button */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={() => deleteProduct(product._id)}
-                    aria-label="Delete product"
-                    className="p-1 rounded-full text-red-400 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 transition-colors"
-                  >
-                    <Trash className="h-5 w-5" />
-                  </button>
-                </td>
-              </motion.tr>
-            ))}
-          </motion.tbody>
-        </table>
+    <div className="max-w-6xl mx-auto border border-gray-700 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="hidden md:flex bg-gray-700 text-gray-300 text-xs font-semibold uppercase tracking-wide">
+        <div className="flex-1 px-4 py-3">Product</div>
+        <div className="w-24 px-4 py-3 text-right">Price</div>
+        <div className="w-28 px-4 py-3 text-center">Category</div>
+        <div className="w-20 px-4 py-3 text-center">Featured</div>
+        <div className="w-20 px-4 py-3 text-center">Actions</div>
       </div>
-    </motion.div>
-  );
-};
 
-export default ProductList;
+      {/* Virtualized List */}
+      <List
+        height={Math.min(ROW_HEIGHT * 10, ROW_HEIGHT * itemCount)} // max 10 rows tall
+        itemCount={itemCount}
+        itemSize={ROW_HEIGHT}
+        width="100%"
+      >
+        {Row}
+      </List>
+    </div>
+  );
+}
