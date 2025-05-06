@@ -14,16 +14,8 @@ const orderSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
-        },
-        price: {
-          type: Number,
-          required: true,
-          min: 0,
-        },
+        quantity: { type: Number, required: true, min: 1 },
+        price: { type: Number, required: true, min: 0 },
       },
     ],
     totalAmount: {
@@ -31,14 +23,25 @@ const orderSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // ◀️ NEW: how they paid
+    paymentMethod: {
+      type: String,
+      enum: ["card", "gcash", "cod"],
+      default: "card",
+    },
+    // ◀️ NEW: whether it’s already paid
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "cancelled"],
+      default: "pending",
+    },
     stripeSessionId: {
       type: String,
       unique: true,
+      sparse: true, // allow null for offline
     },
   },
   { timestamps: true }
 );
 
-const Order = mongoose.model("Order", orderSchema);
-
-export default Order;
+export default mongoose.model("Order", orderSchema);

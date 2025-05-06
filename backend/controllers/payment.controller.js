@@ -8,36 +8,24 @@ const CLIENT_URL = process.env.CLIENT_URL;
 
 export const createCheckoutSession = async (req, res) => {
   try {
-    const { products, couponCode } = req.body;
+    const { products, couponCode, paymentMethod } = req.body;
 
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ error: "Invalid or empty products array" });
     }
 
+    // 1) Calculate total in centavos
     let totalAmount = 0;
-
-    // Build Stripe line items
-    const line_items = products.map((product) => {
-      const price = Number(product.price);
-      const quantity = Number(product.quantity) || 1;
+    products.forEach((p) => {
+      const price = Number(p.price);
+      const quantity = Number(p.quantity) || 1;
       if (isNaN(price) || price <= 0) {
-        throw new Error(`Invalid price for product "${product.name}"`);
+        throw new Error(`Invalid price for product "${p.name}"`);
       }
-      const amount = Math.round(price * 100);
-      totalAmount += amount * quantity;
-
-      return {
-        price_data: {
-          currency: "php",
-          unit_amount: amount,
-          product_data: { name: product.name, images: [product.image] },
-        },
-        quantity,
-      };
+      totalAmount += Math.round(price * 100) * quantity;
     });
 
-    // Apply coupon discount if provided
-    let stripeCouponId = null;
+    // 2) Apply coupon if any
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode,
@@ -45,19 +33,81 @@ export const createCheckoutSession = async (req, res) => {
         isActive: true,
       });
       if (coupon) {
-        const discountAmount = Math.round(
+        const discount = Math.round(
           (totalAmount * coupon.discountPercentage) / 100
         );
-        totalAmount -= discountAmount;
-        const stripeCoupon = await stripe.coupons.create({
-          percent_off: coupon.discountPercentage,
-          duration: "once",
-        });
-        stripeCouponId = stripeCoupon.id;
+        totalAmount -= discount;
+        // deactivate it so it can't be reused
+        await Coupon.findOneAndUpdate(
+          { code: couponCode, userId: req.user._id },
+          { isActive: false }
+        );
       }
     }
 
-    // Create Checkout session with session_id on cancel
+    // 3) OFFLINE FLOW (GCash or COD)
+    if (paymentMethod === "gcash" || paymentMethod === "cod") {
+      // Create order immediately as "paid"
+      const newOrder = await Order.create({
+        user: req.user._id,
+        products: products.map((p) => ({
+          product: p._id,
+          quantity: p.quantity,
+          price: p.price,
+        })),
+        totalAmount: totalAmount / 100,
+        paymentMethod, // "gcash" or "cod"
+        paymentStatus: "paid", // auto-paid
+        stripeSessionId: null,
+      });
+
+      // Auto-gift coupon if over threshold
+      if (totalAmount >= 20000) {
+        await Coupon.findOneAndDelete({ userId: req.user._id });
+        await new Coupon({
+          code: `GIFT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+          discountPercentage: 10,
+          expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          userId: req.user._id,
+        }).save();
+      }
+
+      return res.status(200).json({
+        offline: true,
+        orderId: newOrder._id,
+        total: newOrder.totalAmount,
+      });
+    }
+
+    // 4) STRIPE FLOW (cards only) — your original code :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+    const line_items = products.map((product) => {
+      const amount = Math.round(Number(product.price) * 100);
+      return {
+        price_data: {
+          currency: "php",
+          unit_amount: amount,
+          product_data: {
+            name: product.name,
+            images: [product.image],
+          },
+        },
+        quantity: product.quantity,
+      };
+    });
+
+    let stripeCouponId = null;
+    if (couponCode) {
+      // (you already deactivated above)
+      // create a Stripe coupon for this session
+      const percent = (await Coupon.findOne({ code: couponCode }))
+        .discountPercentage;
+      const sc = await stripe.coupons.create({
+        percent_off: percent,
+        duration: "once",
+      });
+      stripeCouponId = sc.id;
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
@@ -78,7 +128,7 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    // Auto-gift coupon
+    // Auto-gift coupon on Stripe flow too
     if (totalAmount >= 20000) {
       await Coupon.findOneAndDelete({ userId: req.user._id });
       await new Coupon({
@@ -89,10 +139,12 @@ export const createCheckoutSession = async (req, res) => {
       }).save();
     }
 
-    res.status(200).json({ id: session.id, totalAmount: totalAmount / 100 });
+    return res
+      .status(200)
+      .json({ id: session.id, totalAmount: totalAmount / 100 });
   } catch (error) {
     console.error("Error processing checkout:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error processing checkout", error: error.message });
   }
@@ -102,6 +154,7 @@ export const checkoutSuccess = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+
     if (session.payment_status === "paid") {
       if (session.metadata.couponCode) {
         await Coupon.findOneAndUpdate(
@@ -112,25 +165,24 @@ export const checkoutSuccess = async (req, res) => {
           { isActive: false }
         );
       }
-      const products = JSON.parse(session.metadata.products);
+      const items = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
-        products: products.map((p) => ({
-          product: p.id,
-          quantity: p.quantity,
-          price: p.price,
+        products: items.map((i) => ({
+          product: i.id,
+          quantity: i.quantity,
+          price: i.price,
         })),
         totalAmount: session.amount_total / 100,
         stripeSessionId: sessionId,
       });
       await newOrder.save();
-      res.status(200).json({ success: true, orderId: newOrder._id });
-    } else {
-      res.status(400).json({ message: "Payment not completed" });
+      return res.status(200).json({ success: true, orderId: newOrder._id });
     }
+    return res.status(400).json({ message: "Payment not completed" });
   } catch (error) {
     console.error("Error finalizing checkout:", error);
-    res
+    return res
       .status(500)
       .json({ message: "Error finalizing checkout", error: error.message });
   }
