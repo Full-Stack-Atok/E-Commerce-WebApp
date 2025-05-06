@@ -1,21 +1,20 @@
-// backend/controllers/payment.controller.js
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
-import { EWallet } from "../lib/xendit.js"; // your Xendit helper
+import { EWallet } from "../lib/xendit.js";
 
 const CLIENT_URL = process.env.CLIENT_URL;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
-// 1) Create checkout session (Stripe | Xendit GCash | COD)
 export const createCheckoutSession = async (req, res) => {
   try {
     const { products, couponCode, paymentMethod, phone } = req.body;
+
     if (!Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ error: "Invalid or empty products array" });
     }
 
-    // Calculate total in centavos
+    // 1) Calculate total (in centavos)
     let totalAmount = 0;
     products.forEach((p) => {
       const price = Number(p.price);
@@ -26,7 +25,7 @@ export const createCheckoutSession = async (req, res) => {
       totalAmount += Math.round(price * 100) * quantity;
     });
 
-    // Apply coupon
+    // 2) Apply coupon (once)
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode,
@@ -45,14 +44,14 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // A) GCash via Xendit
+    // 3A) GCash via Xendit
     if (paymentMethod === "gcash") {
       if (!phone) {
         return res
           .status(400)
           .json({ error: "Phone number required for GCash" });
       }
-      // 1. Create order in DB (pending)
+      // create a pending order
       const order = await Order.create({
         user: req.user._id,
         products: products.map((p) => ({
@@ -65,7 +64,7 @@ export const createCheckoutSession = async (req, res) => {
         paymentStatus: "pending",
         stripeSessionId: null,
       });
-      // 2. Create Xendit charge
+      // charge on Xendit
       const charge = await EWallet.create({
         referenceID: order._id.toString(),
         currency: "PHP",
@@ -82,7 +81,7 @@ export const createCheckoutSession = async (req, res) => {
         .json({ checkoutUrl: charge.actions.mobile_web_checkout_url });
     }
 
-    // B) Cash on Delivery (no API)
+    // 3B) Cash on Delivery
     if (paymentMethod === "cod") {
       const newOrder = await Order.create({
         user: req.user._id,
@@ -103,7 +102,7 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // C) Default: Stripe card checkout
+    // 3C) Stripe card checkout
     const line_items = products.map((prod) => ({
       price_data: {
         currency: "php",
@@ -154,14 +153,14 @@ export const createCheckoutSession = async (req, res) => {
   }
 };
 
-// 2) Stripe webhook endpoint (or frontend callback) to finalize card orders
+// Stripe success (or your frontend POST) to finalize card orders
 export const checkoutSuccess = async (req, res) => {
   try {
     const { sessionId } = req.body;
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status === "paid") {
-      // deactivate coupon if any
+      // invalidate coupon
       if (session.metadata.couponCode) {
         await Coupon.findOneAndUpdate(
           {
@@ -171,7 +170,7 @@ export const checkoutSuccess = async (req, res) => {
           { isActive: false }
         );
       }
-      // save order as paid
+      // save paid order
       const items = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
@@ -197,7 +196,7 @@ export const checkoutSuccess = async (req, res) => {
   }
 };
 
-// 3) Xendit webhook to mark GCash orders as paid
+// Xendit webhook to mark GCash orders paid
 export const handleGCashCallback = async (req, res) => {
   try {
     const evt = req.body;
