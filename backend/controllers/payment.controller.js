@@ -6,7 +6,6 @@ import { paypalClient } from "../lib/paypal.js";
 import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
 
 const CLIENT_URL = process.env.CLIENT_URL;
-const FRONTEND_URL = process.env.FRONTEND_URL;
 
 // 1) Create Stripe Checkout (cards) or COD
 export const createCheckoutSession = async (req, res) => {
@@ -127,7 +126,7 @@ export const createCheckoutSession = async (req, res) => {
   }
 };
 
-// 2) Capture Stripe payment or finalize COD (unchanged)
+// 2) Capture Stripe payment or finalize COD
 export const checkoutSuccess = async (req, res) => {
   // …your existing Stripe finalize code…
 };
@@ -137,7 +136,6 @@ export const createPayPalOrder = async (req, res) => {
   console.log("▶ createPayPalOrder body:", req.body);
   try {
     const { products, couponCode } = req.body;
-    // compute totalPhpCents + apply coupon (same as above)…
     let totalPhpCents = 0;
     for (const p of products) {
       totalPhpCents += Math.round(Number(p.price) * 100) * (p.quantity || 1);
@@ -171,8 +169,8 @@ export const createPayPalOrder = async (req, res) => {
         },
       ],
       application_context: {
-        return_url: `${FRONTEND_URL}/#/purchase-success?paypal=true`,
-        cancel_url: `${FRONTEND_URL}/#/purchase-cancel`,
+        return_url: `${CLIENT_URL}/#/purchase-success?paypal=true`,
+        cancel_url: `${CLIENT_URL}/#/purchase-cancel`,
       },
     });
 
@@ -198,7 +196,7 @@ export const capturePayPalOrder = async (req, res) => {
       return res.status(400).json({ message: "PayPal payment not completed" });
     }
 
-    // rebuild totalPhpCents + coupon logic
+    // rebuild total and save order
     let totalPhpCents = 0;
     products.forEach((p) => {
       totalPhpCents += Math.round(Number(p.price) * 100) * p.quantity;
@@ -210,7 +208,6 @@ export const capturePayPalOrder = async (req, res) => {
       });
       const d = Math.round((totalPhpCents * c.discountPercentage) / 100);
       totalPhpCents -= d;
-      // already deactivated earlier
     }
 
     const order = await Order.create({
