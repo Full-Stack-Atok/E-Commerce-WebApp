@@ -10,11 +10,11 @@ import {
 
 const router = express.Router();
 
-// Stripe Card + COD
+// Stripe Card + Cash on Delivery
 router.post("/create-checkout-session", protectRoute, createCheckoutSession);
 router.post("/checkout-success", protectRoute, checkoutSuccess);
 
-// PayPal native
+// PayPal-native
 router.post("/create-paypal-order", protectRoute, createPayPalOrder);
 router.post("/capture-paypal-order", protectRoute, capturePayPalOrder);
 
