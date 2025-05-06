@@ -5,7 +5,12 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import { Trash, Star } from "lucide-react";
 import { useProductStore } from "../stores/useProductStore";
 
-// Memoized row
+const HEADER_HEIGHT = 48; // height of your sticky table header
+const NAVBAR_HEIGHT = 64; // height of your site navbar (adjust if needed)
+const ROW_HEIGHT = 64; // height of each row
+const BOTTOM_SPACING = 64; // extra padding at bottom so last row isn't flush
+
+// memoized Row to avoid re-renders
 const Row = React.memo(({ index, style, data }) => {
   const { products, toggleFeaturedProduct, deleteProduct } = data;
   const p = products[index];
@@ -48,53 +53,46 @@ const Row = React.memo(({ index, style, data }) => {
   );
 });
 
-// Custom inner element to add bottom padding
-const InnerContainer = React.forwardRef(({ style, ...rest }, ref) => (
-  <div
-    ref={ref}
-    style={{ ...style, paddingBottom: 24 }} // extra space at bottom
-    {...rest}
-  />
-));
-
 export default function ProductList() {
   const { products, toggleFeaturedProduct, deleteProduct } = useProductStore();
   const itemData = { products, toggleFeaturedProduct, deleteProduct };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] max-w-6xl mx-auto bg-gray-800 shadow-md rounded-lg overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 bg-gray-700 text-gray-300 grid grid-cols-[1fr_6rem_8rem_auto_auto] items-center px-6 h-12">
-        <div className="uppercase text-xs font-semibold tracking-wide">
-          Product
-        </div>
-        <div className="uppercase text-xs font-semibold tracking-wide">
-          Price
-        </div>
-        <div className="uppercase text-xs font-semibold tracking-wide">
-          Category
-        </div>
-        <div className="uppercase text-xs font-semibold tracking-wide">
-          Featured
-        </div>
-        <div className="uppercase text-xs font-semibold tracking-wide">
-          Actions
-        </div>
+    <div
+      className="max-w-6xl mx-auto bg-gray-800 shadow-md rounded-lg overflow-hidden flex flex-col"
+      style={{
+        // make container exactly the screen height minus your navbar
+        height: `calc(100vh - ${NAVBAR_HEIGHT}px)`,
+      }}
+    >
+      {/* Sticky header */}
+      <div
+        className="bg-gray-700 text-gray-300 grid grid-cols-[1fr_6rem_8rem_auto_auto] items-center px-6 flex-shrink-0"
+        style={{ height: HEADER_HEIGHT }}
+      >
+        {["Product", "Price", "Category", "Featured", "Actions"].map((h) => (
+          <div
+            key={h}
+            className="uppercase text-xs font-semibold tracking-wide"
+          >
+            {h}
+          </div>
+        ))}
       </div>
 
-      {/* List */}
-      <div className="flex-1">
+      {/* Virtualized list flexes to fill */}
+      <div className="flex-1 relative">
         <AutoSizer>
           {({ height, width }) => (
             <List
               height={height}
               width={width}
               itemCount={products.length}
-              itemSize={64}
-              overscanCount={10}
+              itemSize={ROW_HEIGHT}
+              overscanCount={10} // render extra rows for super-smooth scroll
               itemKey={(index) => products[index]._id}
               itemData={itemData}
-              innerElementType={InnerContainer}
+              style={{ paddingBottom: BOTTOM_SPACING }}
             >
               {Row}
             </List>
