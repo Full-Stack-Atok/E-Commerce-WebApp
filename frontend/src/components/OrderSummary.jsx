@@ -7,7 +7,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import axios from "../lib/axios";
 import toast from "react-hot-toast";
 
-// Initialize Stripe.js
+// Load Stripe.js
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
   locale: "auto",
 });
@@ -31,7 +31,6 @@ export default function OrderSummary() {
 
   const handlePayment = useCallback(async () => {
     setLoading(true);
-
     try {
       const payload = {
         products: cart.map((item) => ({
@@ -78,7 +77,7 @@ export default function OrderSummary() {
     >
       <p className="text-xl font-semibold text-white">Order Summary</p>
 
-      {/* Payment Method Choices */}
+      {/* Payment Method Picker */}
       <div className="space-y-2 text-gray-300">
         {[
           { value: "card", label: "Credit / Debit Card" },
@@ -97,6 +96,14 @@ export default function OrderSummary() {
           </label>
         ))}
       </div>
+
+      {/* Warning for PayPal currency conversion */}
+      {paymentMethod === "paypal" && (
+        <p className="mt-2 text-yellow-300 text-sm">
+          ⚠️ When you choose PayPal, prices will be converted to USD at checkout
+          and your bank may charge currency conversion fees.
+        </p>
+      )}
 
       {/* Price Breakdown */}
       <div className="space-y-2 text-gray-300">

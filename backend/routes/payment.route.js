@@ -8,10 +8,10 @@ import {
 
 const router = express.Router();
 
-// Card, PayPal & Cash-on-Delivery all go through one endpoint:
+// Card, PayPal (via Stripe) & Cash-on-Delivery all hit the same endpoint:
 router.post("/create-checkout-session", protectRoute, createCheckoutSession);
 
-// Stripe success callback (or frontend will POST here)
+// Stripe success callback
 router.post("/checkout-success", protectRoute, checkoutSuccess);
 
 export default router;
