@@ -134,6 +134,7 @@ export const checkoutSuccess = async (req, res) => {
 
 // 3) PayPal: create order
 export const createPayPalOrder = async (req, res) => {
+  console.log("▶ createPayPalOrder body:", req.body);
   try {
     const { products, couponCode } = req.body;
     // compute totalPhpCents + apply coupon (same as above)…
