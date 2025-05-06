@@ -37,7 +37,6 @@ export const createCheckoutSession = async (req, res) => {
           (totalAmount * coupon.discountPercentage) / 100
         );
         totalAmount -= discount;
-        // deactivate it so it can't be reused
         await Coupon.findOneAndUpdate(
           { code: couponCode, userId: req.user._id },
           { isActive: false }
@@ -47,7 +46,6 @@ export const createCheckoutSession = async (req, res) => {
 
     // 3) OFFLINE FLOW (GCash or COD)
     if (paymentMethod === "gcash" || paymentMethod === "cod") {
-      // Create order immediately as "paid"
       const newOrder = await Order.create({
         user: req.user._id,
         products: products.map((p) => ({
@@ -79,7 +77,7 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // 4) STRIPE FLOW (cards only) — your original code :contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
+    // 4) STRIPE FLOW (cards only)
     const line_items = products.map((product) => {
       const amount = Math.round(Number(product.price) * 100);
       return {
@@ -97,8 +95,6 @@ export const createCheckoutSession = async (req, res) => {
 
     let stripeCouponId = null;
     if (couponCode) {
-      // (you already deactivated above)
-      // create a Stripe coupon for this session
       const percent = (await Coupon.findOne({ code: couponCode }))
         .discountPercentage;
       const sc = await stripe.coupons.create({
@@ -165,6 +161,7 @@ export const checkoutSuccess = async (req, res) => {
           { isActive: false }
         );
       }
+
       const items = JSON.parse(session.metadata.products);
       const newOrder = new Order({
         user: session.metadata.userId,
@@ -174,11 +171,15 @@ export const checkoutSuccess = async (req, res) => {
           price: i.price,
         })),
         totalAmount: session.amount_total / 100,
+        paymentMethod: "card", // explicitly mark card-paid
+        paymentStatus: "paid",
         stripeSessionId: sessionId,
       });
       await newOrder.save();
+
       return res.status(200).json({ success: true, orderId: newOrder._id });
     }
+
     return res.status(400).json({ message: "Payment not completed" });
   } catch (error) {
     console.error("Error finalizing checkout:", error);

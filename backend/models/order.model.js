@@ -1,3 +1,4 @@
+// backend/models/order.model.js
 import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
@@ -23,13 +24,11 @@ const orderSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
-    // ◀️ NEW: how they paid
     paymentMethod: {
       type: String,
       enum: ["card", "gcash", "cod"],
       default: "card",
     },
-    // ◀️ NEW: whether it’s already paid
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "cancelled"],
@@ -37,8 +36,9 @@ const orderSchema = new mongoose.Schema(
     },
     stripeSessionId: {
       type: String,
+      default: null, // make sure offline orders get null
       unique: true,
-      sparse: true, // allow null for offline
+      sparse: true, // allow multiple nulls
     },
   },
   { timestamps: true }
