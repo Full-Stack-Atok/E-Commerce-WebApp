@@ -1,159 +1,321 @@
-import { redis } from "../lib/redis.js";
-import cloudinary from "../lib/cloudinary.js";
-import Product from "../models/product.model.js";
+// backend/controllers/payment.controller.js
 
-export const getAllProducts = async (req, res) => {
-  try {
-    const products = await Product.find({}); // find all products
-    res.json({ products });
-  } catch (error) {
-    console.log("Error in getAllProducts controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+import Coupon from "../models/coupon.model.js";
+import Order from "../models/order.model.js";
+import { stripe } from "../lib/stripe.js";
+import { paypalClient } from "../lib/paypal.js";
+import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
 
-export const getFeaturedProducts = async (req, res) => {
+const CLIENT_URL = process.env.CLIENT_URL;
+
+// Helper to coerce missing/malformed products into an array
+const normalizeProducts = (products) =>
+  Array.isArray(products) ? products : [];
+
+// 1) Create Stripe Checkout (cards) or COD
+export const createCheckoutSession = async (req, res) => {
   try {
-    let featuredProducts = await redis.get("featured_products");
-    if (featuredProducts) {
-      return res.json(JSON.parse(featuredProducts));
+    const { products, couponCode, paymentMethod } = req.body;
+    const items = normalizeProducts(products);
+
+    if (items.length === 0) {
+      return res.status(400).json({ error: "No products provided" });
     }
 
-    // if not in redis, fetch from mongodb
-    // .lean() is gonna return a plain javascript object instead of a mongodb document
-    // which is good for performance
-    featuredProducts = await Product.find({ isFeatured: true }).lean();
+    // Calculate total in centavos
+    let totalPhpCents = items.reduce((sum, p) => {
+      const price = Number(p.price) || 0;
+      const qty = Number(p.quantity) || 1;
+      return sum + Math.round(price * 100) * qty;
+    }, 0);
 
-    if (!featuredProducts) {
-      return res.status(404).json({ message: "No featured products found" });
-    }
-
-    // store in redis for future quick access
-
-    await redis.set("featured_products", JSON.stringify(featuredProducts));
-
-    res.json(featuredProducts);
-  } catch (error) {
-    console.log("Error in getFeaturedProducts controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-export const createProduct = async (req, res) => {
-  try {
-    const { name, description, price, image, category } = req.body;
-
-    let cloudinaryResponse = null;
-
-    if (image) {
-      cloudinaryResponse = await cloudinary.uploader.upload(image, {
-        folder: "products",
+    // Apply coupon if provided
+    if (couponCode) {
+      const coupon = await Coupon.findOne({
+        code: couponCode,
+        userId: req.user._id,
+        isActive: true,
       });
-    }
-
-    const product = await Product.create({
-      name,
-      description,
-      price,
-      image: cloudinaryResponse?.secure_url
-        ? cloudinaryResponse.secure_url
-        : "",
-      category,
-    });
-
-    res.status(201).json(product);
-  } catch (error) {
-    console.log("Error in createProduct controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-export const deleteProduct = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    if (product.image) {
-      const publicId = product.image.split("/").pop().split(".")[0];
-      try {
-        await cloudinary.uploader.destroy(`products/${publicId}`);
-        console.log("deleted image from cloduinary");
-      } catch (error) {
-        console.log("error deleting image from cloduinary", error);
+      if (coupon) {
+        const discount = Math.round(
+          (totalPhpCents * coupon.discountPercentage) / 100
+        );
+        totalPhpCents -= discount;
+        coupon.isActive = false;
+        await coupon.save();
       }
     }
 
-    await Product.findByIdAndDelete(req.params.id);
+    // Cash on Delivery branch
+    if (paymentMethod === "cod") {
+      const order = await Order.create({
+        user: req.user._id,
+        products: items.map((p) => ({
+          product: p.id || p._id,
+          quantity: p.quantity,
+          price: p.price,
+        })),
+        totalAmount: totalPhpCents / 100,
+        paymentMethod: "cod",
+        paymentStatus: "paid",
+        stripeSessionId: `${req.user._id}-${Date.now()}`,
+      });
 
-    res.json({ message: "Product deleted successfully" });
-  } catch (error) {
-    console.log("Error in deleteProduct controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-export const getRecommendedProducts = async (req, res) => {
-  try {
-    const products = await Product.aggregate([
-      {
-        $sample: { size: 4 },
-      },
-      {
-        $project: {
-          _id: 1,
-          name: 1,
-          description: 1,
-          image: 1,
-          price: 1,
-        },
-      },
-    ]);
-
-    res.json(products);
-  } catch (error) {
-    console.log("Error in getRecommendedProducts controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-export const getProductsByCategory = async (req, res) => {
-  const { category } = req.params;
-  try {
-    const products = await Product.find({ category });
-    res.json({ products });
-  } catch (error) {
-    console.log("Error in getProductsByCategory controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
-
-export const toggleFeaturedProduct = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-      product.isFeatured = !product.isFeatured;
-      const updatedProduct = await product.save();
-      await updateFeaturedProductsCache();
-      res.json(updatedProduct);
-    } else {
-      res.status(404).json({ message: "Product not found" });
+      return res.json({
+        offline: true,
+        orderId: order._id,
+        total: order.totalAmount,
+      });
     }
-  } catch (error) {
-    console.log("Error in toggleFeaturedProduct controller", error.message);
-    res.status(500).json({ message: "Server error", error: error.message });
+
+    // Stripe Checkout for cards
+    const line_items = items.map((p) => ({
+      price_data: {
+        currency: "php",
+        unit_amount: Math.round(Number(p.price) * 100),
+        product_data: { name: p.name, images: [p.image] },
+      },
+      quantity: p.quantity,
+    }));
+
+    let stripeCouponId = null;
+    if (couponCode) {
+      const couponDoc = await Coupon.findOne({ code: couponCode });
+      if (couponDoc) {
+        const sc = await stripe.coupons.create({
+          percent_off: couponDoc.discountPercentage,
+          duration: "once",
+        });
+        stripeCouponId = sc.id;
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items,
+      mode: "payment",
+      success_url: `${CLIENT_URL}/#/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${CLIENT_URL}/#/purchase-cancel?session_id={CHECKOUT_SESSION_ID}`,
+      discounts: stripeCouponId ? [{ coupon: stripeCouponId }] : [],
+      metadata: {
+        userId: req.user._id.toString(),
+        coupon: couponCode || "",
+        products: JSON.stringify(
+          items.map((p) => ({
+            id: p.id || p._id,
+            quantity: p.quantity,
+            price: p.price,
+          }))
+        ),
+      },
+    });
+
+    // Auto-gift coupon for big spenders
+    if (totalPhpCents >= 20_000) {
+      await Coupon.deleteMany({ userId: req.user._id, isActive: true });
+      await Coupon.create({
+        code: `GIFT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+        discountPercentage: 10,
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        userId: req.user._id,
+      });
+    }
+
+    return res.json({
+      id: session.id,
+      totalAmount: session.amount_total / 100,
+    });
+  } catch (err) {
+    console.error("Error processing checkout:", err);
+    return res.status(500).json({
+      message: "Error processing checkout",
+      error: err.message,
+    });
   }
 };
 
-async function updateFeaturedProductsCache() {
+// 2) Capture Stripe payment & create your Order
+export const checkoutSuccess = async (req, res) => {
   try {
-    // The lean() method  is used to return plain JavaScript objects instead of full Mongoose documents. This can significantly improve performance
+    const { sessionId } = req.body;
+    if (!sessionId) {
+      return res.status(400).json({ message: "Missing sessionId" });
+    }
 
-    const featuredProducts = await Product.find({ isFeatured: true }).lean();
-    await redis.set("featured_products", JSON.stringify(featuredProducts));
-  } catch (error) {
-    console.log("error in update cache function");
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["line_items"],
+    });
+
+    if (session.payment_status !== "paid") {
+      return res.status(400).json({ message: "Stripe payment not completed" });
+    }
+
+    const metadata = session.metadata || {};
+    const couponCode = metadata.coupon || "";
+    const productsMeta = JSON.parse(metadata.products || "[]");
+
+    // Recompute total for safety
+    let totalPhpCents = productsMeta.reduce((sum, p) => {
+      return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
+    }, 0);
+    if (couponCode) {
+      const c = await Coupon.findOne({
+        code: couponCode,
+        userId: req.user._id,
+      });
+      if (c) {
+        const discount = Math.round(
+          (totalPhpCents * c.discountPercentage) / 100
+        );
+        totalPhpCents -= discount;
+      }
+    }
+
+    const order = await Order.create({
+      user: req.user._id,
+      products: productsMeta.map((p) => ({
+        product: p.id,
+        quantity: p.quantity,
+        price: p.price,
+      })),
+      totalAmount: totalPhpCents / 100,
+      paymentMethod: "card",
+      paymentStatus: "paid",
+      stripeSessionId: sessionId,
+    });
+
+    res.json({ orderId: order._id });
+  } catch (err) {
+    console.error("checkoutSuccess error:", err);
+    res.status(500).json({
+      message: "Failed to finalize Stripe order",
+      error: err.message,
+    });
   }
-}
+};
+
+// 3) PayPal: create order
+export const createPayPalOrder = async (req, res) => {
+  try {
+    const { products, couponCode } = req.body;
+    const items = normalizeProducts(products);
+
+    if (items.length === 0) {
+      return res.status(400).json({ message: "No products provided" });
+    }
+
+    let totalPhpCents = items.reduce((sum, p) => {
+      return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
+    }, 0);
+
+    if (couponCode) {
+      const c = await Coupon.findOne({
+        code: couponCode,
+        userId: req.user._id,
+        isActive: true,
+      });
+      if (c) {
+        const discount = Math.round(
+          (totalPhpCents * c.discountPercentage) / 100
+        );
+        totalPhpCents -= discount;
+        c.isActive = false;
+        await c.save();
+      }
+    }
+
+    const request = new checkoutNodeJssdk.orders.OrdersCreateRequest();
+    request.prefer("return=representation");
+    request.requestBody({
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          amount: {
+            currency_code: "PHP",
+            value: (totalPhpCents / 100).toFixed(2),
+          },
+        },
+      ],
+      application_context: {
+        return_url: `${CLIENT_URL}/#/purchase-success?paypal=true`,
+        cancel_url: `${CLIENT_URL}/#/purchase-cancel`,
+      },
+    });
+
+    const { result } = await paypalClient.execute(request);
+    res.json({ id: result.id });
+  } catch (err) {
+    console.error("createPayPalOrder error:", err);
+    res.status(500).json({
+      message: "Failed to create PayPal order",
+      error: err.message,
+    });
+  }
+};
+
+// 4) PayPal: capture order
+export const capturePayPalOrder = async (req, res) => {
+  try {
+    const { orderID, products, couponCode } = req.body;
+
+    if (!orderID) {
+      return res.status(400).json({ message: "Missing orderID" });
+    }
+
+    const items = normalizeProducts(products);
+    if (items.length === 0) {
+      return res.status(400).json({ message: "Missing products for order" });
+    }
+
+    // 1) Capture with PayPal
+    const request = new checkoutNodeJssdk.orders.OrdersCaptureRequest(orderID);
+    request.requestBody({});
+    const { result } = await paypalClient.execute(request);
+
+    if (result.status !== "COMPLETED") {
+      return res.status(400).json({ message: "PayPal payment not completed" });
+    }
+
+    // 2) Recompute total and reapply coupon
+    let totalPhpCents = items.reduce((sum, p) => {
+      return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
+    }, 0);
+    if (couponCode) {
+      const c = await Coupon.findOne({
+        code: couponCode,
+        userId: req.user._id,
+      });
+      if (c) {
+        const discount = Math.round(
+          (totalPhpCents * c.discountPercentage) / 100
+        );
+        totalPhpCents -= discount;
+      }
+    }
+
+    // 3) Persist without stripeSessionId
+    const order = await Order.create({
+      user: req.user._id,
+      products: items.map((p) => ({
+        product: p.id || p._id,
+        quantity: p.quantity,
+        price: p.price,
+      })),
+      totalAmount: totalPhpCents / 100,
+      paymentMethod: "paypal",
+      paymentStatus: "paid",
+      // stripeSessionId omitted entirely
+    });
+
+    res.json({ success: true, orderId: order._id });
+  } catch (err) {
+    console.error("capturePayPalOrder error:", err);
+    if (err._originalError?.text) {
+      console.error("→ PayPal raw response:", err._originalError.text);
+    }
+    res.status(500).json({
+      message: "Failed to capture PayPal order",
+      error: err.message,
+    });
+  }
+};
