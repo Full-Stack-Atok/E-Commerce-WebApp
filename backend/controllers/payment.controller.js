@@ -1,4 +1,5 @@
 // backend/controllers/payment.controller.js
+
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import { stripe } from "../lib/stripe.js";
@@ -7,22 +8,28 @@ import checkoutNodeJssdk from "@paypal/checkout-server-sdk";
 
 const CLIENT_URL = process.env.CLIENT_URL;
 
+// Helper to coerce missing/malformed products into an array
+const normalizeProducts = (products) =>
+  Array.isArray(products) ? products : [];
+
 // 1) Create Stripe Checkout (cards) or COD
 export const createCheckoutSession = async (req, res) => {
   try {
     const { products, couponCode, paymentMethod } = req.body;
-    if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ error: "Invalid or empty products array" });
+    const items = normalizeProducts(products);
+
+    if (items.length === 0) {
+      return res.status(400).json({ error: "No products provided" });
     }
 
-    // Calculate PHP total in centavos
-    let totalPhpCents = products.reduce((sum, p) => {
+    // Calculate total in centavos
+    let totalPhpCents = items.reduce((sum, p) => {
       const price = Number(p.price) || 0;
       const qty = Number(p.quantity) || 1;
       return sum + Math.round(price * 100) * qty;
     }, 0);
 
-    // Apply coupon
+    // Apply coupon if provided
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode,
@@ -39,12 +46,12 @@ export const createCheckoutSession = async (req, res) => {
       }
     }
 
-    // COD branch
+    // Cash on Delivery branch
     if (paymentMethod === "cod") {
       const order = await Order.create({
         user: req.user._id,
-        products: products.map((p) => ({
-          product: p._id,
+        products: items.map((p) => ({
+          product: p.id || p._id,
           quantity: p.quantity,
           price: p.price,
         })),
@@ -53,6 +60,7 @@ export const createCheckoutSession = async (req, res) => {
         paymentStatus: "paid",
         stripeSessionId: `${req.user._id}-${Date.now()}`,
       });
+
       return res.json({
         offline: true,
         orderId: order._id,
@@ -60,14 +68,14 @@ export const createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Stripe Checkout for Card
-    const line_items = products.map((prod) => ({
+    // Stripe Checkout for cards
+    const line_items = items.map((p) => ({
       price_data: {
         currency: "php",
-        unit_amount: Math.round(Number(prod.price) * 100),
-        product_data: { name: prod.name, images: [prod.image] },
+        unit_amount: Math.round(Number(p.price) * 100),
+        product_data: { name: p.name, images: [p.image] },
       },
-      quantity: prod.quantity,
+      quantity: p.quantity,
     }));
 
     let stripeCouponId = null;
@@ -93,8 +101,8 @@ export const createCheckoutSession = async (req, res) => {
         userId: req.user._id.toString(),
         coupon: couponCode || "",
         products: JSON.stringify(
-          products.map((p) => ({
-            id: p._id,
+          items.map((p) => ({
+            id: p.id || p._id,
             quantity: p.quantity,
             price: p.price,
           }))
@@ -103,7 +111,7 @@ export const createCheckoutSession = async (req, res) => {
     });
 
     // Auto-gift coupon for big spenders
-    if (totalPhpCents >= 20000) {
+    if (totalPhpCents >= 20_000) {
       await Coupon.deleteMany({ userId: req.user._id, isActive: true });
       await Coupon.create({
         code: `GIFT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
@@ -119,9 +127,10 @@ export const createCheckoutSession = async (req, res) => {
     });
   } catch (err) {
     console.error("Error processing checkout:", err);
-    return res
-      .status(500)
-      .json({ message: "Error processing checkout", error: err.message });
+    return res.status(500).json({
+      message: "Error processing checkout",
+      error: err.message,
+    });
   }
 };
 
@@ -133,7 +142,6 @@ export const checkoutSuccess = async (req, res) => {
       return res.status(400).json({ message: "Missing sessionId" });
     }
 
-    // 1) Retrieve the session, expanding line_items
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["line_items"],
     });
@@ -142,12 +150,11 @@ export const checkoutSuccess = async (req, res) => {
       return res.status(400).json({ message: "Stripe payment not completed" });
     }
 
-    // 2) Pull metadata back out
     const metadata = session.metadata || {};
     const couponCode = metadata.coupon || "";
     const productsMeta = JSON.parse(metadata.products || "[]");
 
-    // 3) Recompute total (optional safety)
+    // Recompute total for safety
     let totalPhpCents = productsMeta.reduce((sum, p) => {
       return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
     }, 0);
@@ -164,7 +171,6 @@ export const checkoutSuccess = async (req, res) => {
       }
     }
 
-    // 4) Create the Order document
     const order = await Order.create({
       user: req.user._id,
       products: productsMeta.map((p) => ({
@@ -178,13 +184,13 @@ export const checkoutSuccess = async (req, res) => {
       stripeSessionId: sessionId,
     });
 
-    // 5) Respond with orderId so front-end can clear cart & redirect
     res.json({ orderId: order._id });
   } catch (err) {
     console.error("checkoutSuccess error:", err);
-    res
-      .status(500)
-      .json({ message: "Failed to finalize Stripe order", error: err.message });
+    res.status(500).json({
+      message: "Failed to finalize Stripe order",
+      error: err.message,
+    });
   }
 };
 
@@ -192,8 +198,13 @@ export const checkoutSuccess = async (req, res) => {
 export const createPayPalOrder = async (req, res) => {
   try {
     const { products, couponCode } = req.body;
+    const items = normalizeProducts(products);
 
-    let totalPhpCents = products.reduce((sum, p) => {
+    if (items.length === 0) {
+      return res.status(400).json({ message: "No products provided" });
+    }
+
+    let totalPhpCents = items.reduce((sum, p) => {
       return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
     }, 0);
 
@@ -235,9 +246,10 @@ export const createPayPalOrder = async (req, res) => {
     res.json({ id: result.id });
   } catch (err) {
     console.error("createPayPalOrder error:", err);
-    res
-      .status(500)
-      .json({ message: "Failed to create PayPal order", error: err.message });
+    res.status(500).json({
+      message: "Failed to create PayPal order",
+      error: err.message,
+    });
   }
 };
 
@@ -245,6 +257,17 @@ export const createPayPalOrder = async (req, res) => {
 export const capturePayPalOrder = async (req, res) => {
   try {
     const { orderID, products, couponCode } = req.body;
+
+    if (!orderID) {
+      return res.status(400).json({ message: "Missing orderID" });
+    }
+
+    const items = normalizeProducts(products);
+    if (items.length === 0) {
+      return res.status(400).json({ message: "Missing products for order" });
+    }
+
+    // 1) Capture with PayPal
     const request = new checkoutNodeJssdk.orders.OrdersCaptureRequest(orderID);
     request.requestBody({});
     const { result } = await paypalClient.execute(request);
@@ -253,10 +276,10 @@ export const capturePayPalOrder = async (req, res) => {
       return res.status(400).json({ message: "PayPal payment not completed" });
     }
 
-    let totalPhpCents = products.reduce((sum, p) => {
+    // 2) Recompute total and reapply coupon
+    let totalPhpCents = items.reduce((sum, p) => {
       return sum + Math.round(Number(p.price) * 100) * (p.quantity || 1);
     }, 0);
-
     if (couponCode) {
       const c = await Coupon.findOne({
         code: couponCode,
@@ -270,17 +293,18 @@ export const capturePayPalOrder = async (req, res) => {
       }
     }
 
+    // 3) Persist without stripeSessionId
     const order = await Order.create({
       user: req.user._id,
-      products: products.map((p) => ({
-        product: p._id,
+      products: items.map((p) => ({
+        product: p.id || p._id,
         quantity: p.quantity,
         price: p.price,
       })),
       totalAmount: totalPhpCents / 100,
       paymentMethod: "paypal",
       paymentStatus: "paid",
-      stripeSessionId: null,
+      // stripeSessionId omitted entirely
     });
 
     res.json({ success: true, orderId: order._id });
@@ -289,8 +313,9 @@ export const capturePayPalOrder = async (req, res) => {
     if (err._originalError?.text) {
       console.error("→ PayPal raw response:", err._originalError.text);
     }
-    res
-      .status(500)
-      .json({ message: "Failed to capture PayPal order", error: err.message });
+    res.status(500).json({
+      message: "Failed to capture PayPal order",
+      error: err.message,
+    });
   }
 };
